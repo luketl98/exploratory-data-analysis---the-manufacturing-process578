@@ -19,7 +19,7 @@ def load_data_from_csv(file_path):
 
 
 # Function to load database credentials from a YAML file
-def load_credentials(file_path='credentials.yaml'):
+def load_db_credentials(file_path='credentials.yaml'):
     with open(file_path, 'r') as file:
         credentials = yaml.safe_load(file)
     return credentials
@@ -49,9 +49,11 @@ class RDSDatabaseConnector:
         # Closes the database connection
         self.engine.dispose()
 
+# class DataTransform:
+
 
 if __name__ == "__main__":
-    credentials = load_credentials('credentials.yaml')
+    credentials = load_db_credentials('credentials.yaml')
     db_connector = RDSDatabaseConnector(credentials)
 
     # Define the SQL query for the required data
