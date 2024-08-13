@@ -12,7 +12,7 @@ This project is designed to optimise a manufacturing machine process to increase
 
 ## Installation Instructions
 1. Clone the repository: git clone #TODO Add git repository here
-2. Install required Python packages: pip install -r requirements.txt --- #TODO ADD requirments here
+2. Install required Python packages: pip install -r requirements.txt --- #TODO ADD requirements here?
 
 ## Usage instructions 
 #TODO Add usage instructions here once complete
