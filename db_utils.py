@@ -12,10 +12,9 @@ def load_data_from_csv(file_path: str) -> pd.DataFrame:
 
     # Print 1st few rows of DataFrame, data types and info
     # to understand what the data looks like
-    print("First few rows of data, data types, then data info:")
-    print(data.head())
-    print(data.dtypes)
-    print(data.info())
+    print("\nPrint initial data types, then data info:")
+    print("\n", data.dtypes)
+    print("\n", data.info())
 
     # Return the DataFrame
     return data
@@ -61,7 +60,7 @@ class RDSDatabaseConnector:
         self.engine.dispose()
 
 
-# class DataTransform: Transforms the data as needed
+# Class to transform the data as needed
 class DataTransform:
     def __init__(self, dataframe: pd.DataFrame):
         self.dataframe = dataframe
@@ -86,19 +85,81 @@ class DataTransform:
         self.dataframe[column_name] = self.dataframe[column_name].astype(bool)
 
 
-# Assuming 'data' is your DataFrame containing the data
-transformer = DataTransform(data)
+class DataFrameInfo:
+    """
+    A class to extract and display information from a Pandas DataFrame
+    for exploratory data analysis (EDA).
+    """
 
-# Convert 'Type' to categorical
-transformer.convert_to_categorical('Type')
+    def __init__(self, dataframe: pd.DataFrame):
+        """
+        Initialize with a DataFrame.
 
-# Convert failure indicators to boolean
-failure_columns = ['Machine failure', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']
-for col in failure_columns:
-    transformer.convert_to_boolean(col)
+        Parameters:
+            dataframe (pd.DataFrame): The DataFrame to analyze.
+        """
+        self.dataframe = dataframe
 
-# Check the result
-print("Data types after transformations:\n", transformer.dataframe.dtypes)
+    def describe_columns(self) -> pd.DataFrame:
+        """
+        Describe all columns in the DataFrame to check their data types.
+
+        Returns:
+            pd.DataFrame: Summary statistics of all DataFrame columns.
+        """
+        return self.dataframe.describe(include='all')
+
+    def extract_statistics(self, column_name: str) -> dict:
+        """
+        Extract statistical values: median, standard deviation,
+        and mean from a specific column.
+
+        Parameters:
+            column_name (str): The name of the column to analyze.
+
+        Returns:
+            dict: A dictionary containing the median, standard deviation,
+            and mean of the column.
+        """
+        statistics = {
+            'mean': self.dataframe[column_name].mean(),
+            'median': self.dataframe[column_name].median(),
+            'std_dev': self.dataframe[column_name].std()
+        }
+        return statistics
+
+    def count_distinct_values(self, column_name: str) -> int:
+        """
+        Count distinct values in a categorical column.
+
+        Parameters:
+            column_name (str): The name of the categorical column.
+
+        Returns:
+            int: The count of distinct values.
+        """
+        return self.dataframe[column_name].nunique()
+
+    def print_shape(self) -> None:
+        """Print out the shape of the DataFrame."""
+        print(f"DataFrame shape: {self.dataframe.shape}")
+
+    def count_null_values(self) -> pd.DataFrame:
+        """
+        Generate a count and percentage of NULL values in each column.
+
+        Returns:
+            pd.DataFrame: A DataFrame showing the count and percentage of
+            NULL values for each column.
+        """
+        null_count = self.dataframe.isnull().sum()
+        null_percentage = (null_count / len(self.dataframe)) * 100
+        null_info = pd.DataFrame({
+            'null_count': null_count,
+            'null_percentage': null_percentage
+        })
+        return null_info
+
 
 if __name__ == "__main__":
     """
@@ -106,10 +167,7 @@ if __name__ == "__main__":
     the provided database credentials.
 
     Parameters:
-        credentials (dict): A dictionary containing the database credentials,
-        including:
-        'RDS_USER', 'RDS_PASSWORD', 'RDS_HOST',
-        'RDS_PORT', and 'RDS_DATABASE'.
+        credentials (dict): A dictionary containing the database credentials.
     """
     credentials = load_db_credentials('credentials.yaml')
     db_connector = RDSDatabaseConnector(credentials)
@@ -124,11 +182,28 @@ if __name__ == "__main__":
     if not data.empty:
         csv_filename = 'failure_data.csv'
         db_connector.save_data_to_csv(data, csv_filename)
-        print("Data successfully saved to 'failure_data.csv'.")
+        print("\nData successfully saved to 'failure_data.csv'.")
 
         # Load the data from the CSV file and print its characteristics
         print("\nLoading data from CSV to verify contents:")
         loaded_data = load_data_from_csv(csv_filename)
+
+        # Pass the loaded data to the DataTransform class
+        transformer = DataTransform(loaded_data)
+
+        # Apply the transformations:
+        # Convert 'Type' to categorical
+        transformer.convert_to_categorical('Type')
+
+        # Convert failure indicators to boolean
+        failure_columns = ['Machine failure', 'TWF',
+                           'HDF', 'PWF', 'OSF', 'RNF']
+        for col in failure_columns:
+            transformer.convert_to_boolean(col)
+
+        # Check the result
+        print("\nData types after transformations:\n",
+              transformer.dataframe.dtypes)
 
     else:
         print("No data was fetched from the database.")
