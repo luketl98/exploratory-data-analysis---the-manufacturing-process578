@@ -6,17 +6,6 @@ from sqlalchemy import create_engine
 def load_data_from_csv(file_path: str) -> pd.DataFrame:
     # Load the data
     data = pd.read_csv(file_path)
-
-    # Print the shape of the DataFrame
-    print("Data shape:", data.shape)
-
-    # Print 1st few rows of DataFrame, data types and info
-    # to understand what the data looks like
-    print("\nPrint initial data types, then data info:")
-    print("\n", data.dtypes)
-    print("\n", data.info())
-
-    # Return the DataFrame
     return data
 
 
@@ -109,39 +98,40 @@ class DataFrameInfo:
         """
         return self.dataframe.describe(include='all')
 
-    def extract_statistics(self, column_name: str) -> dict:
+    def extract_statistics(self) -> pd.DataFrame:
         """
         Extract statistical values: median, standard deviation,
-        and mean from a specific column.
-
-        Parameters:
-            column_name (str): The name of the column to analyze.
+        and mean from all numeric columns in the DataFrame.
 
         Returns:
-            dict: A dictionary containing the median, standard deviation,
-            and mean of the column.
+            pd.DataFrame: A DataFrame containing the mean, median,
+            and standard deviation for each numeric column.
         """
         statistics = {
-            'mean': self.dataframe[column_name].mean(),
-            'median': self.dataframe[column_name].median(),
-            'std_dev': self.dataframe[column_name].std()
+            'mean': self.dataframe.mean(),
+            'median': self.dataframe.median(),
+            'std_dev': self.dataframe.std()
         }
-        return statistics
+        return pd.DataFrame(statistics)
 
-    def count_distinct_values(self, column_name: str) -> int:
+    def count_distinct_values(self) -> pd.DataFrame:
         """
-        Count distinct values in a categorical column.
-
-        Parameters:
-            column_name (str): The name of the categorical column.
+        Count distinct values in all columns of the DataFrame.
 
         Returns:
-            int: The count of distinct values.
+            pd.DataFrame: A DataFrame with the count of distinct values
+            for each column.
         """
-        return self.dataframe[column_name].nunique()
+        distinct_values = {
+            column: self.dataframe[column].nunique()
+            for column in self.dataframe.columns
+        }
+        return pd.DataFrame.from_dict(distinct_values,
+                                      orient='index',
+                                      columns=['distinct_count'])
 
     def print_shape(self) -> None:
-        """Print out the shape of the DataFrame."""
+        """ Print out the shape of the DataFrame. """
         print(f"DataFrame shape: {self.dataframe.shape}")
 
     def count_null_values(self) -> pd.DataFrame:
@@ -191,7 +181,8 @@ if __name__ == "__main__":
         # Pass the loaded data to the DataTransform class
         transformer = DataTransform(loaded_data)
 
-        # Apply the transformations:
+        # --- Apply the transformations: --- #
+
         # Convert 'Type' to categorical
         transformer.convert_to_categorical('Type')
 
@@ -201,9 +192,16 @@ if __name__ == "__main__":
         for col in failure_columns:
             transformer.convert_to_boolean(col)
 
-        # Check the result
-        print("\nData types after transformations:\n",
-              transformer.dataframe.dtypes)
+        # --- Extract and display information about the DataFrame,
+        # Using the DataFrameInfo class ---
+
+        # Initialize the DataFrameInfo class with the loaded data
+        data_info = DataFrameInfo(loaded_data)
+        print(data_info.describe_columns())
+        print(data_info.extract_statistics())
+        data_info.print_shape()
+        print(data_info.count_distinct_values())
+        print(data_info.count_null_values())
 
     else:
         print("No data was fetched from the database.")
