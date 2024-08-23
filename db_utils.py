@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import yaml
 from sqlalchemy import create_engine
@@ -91,12 +92,20 @@ class DataFrameInfo:
 
     def describe_columns(self) -> pd.DataFrame:
         """
-        Describe all columns in the DataFrame to check their data types.
+        Describe numeric columns in the DataFrame to check their data types.
 
         Returns:
-            pd.DataFrame: Summary statistics of all DataFrame columns.
+            pd.DataFrame: Summary statistics of numeric DataFrame columns.
         """
-        return self.dataframe.describe(include='all')
+        # Select only numeric columns
+        numeric_data = self.dataframe.select_dtypes(include=[np.number])
+
+        # Adjust display options to limit output size
+        pd.set_option('display.max_rows', 10)
+        pd.set_option('display.max_columns', 10)
+
+        # Return description of numeric columns
+        return numeric_data.describe()
 
     def extract_statistics(self) -> pd.DataFrame:
         """
@@ -107,11 +116,14 @@ class DataFrameInfo:
             pd.DataFrame: A DataFrame containing the mean, median,
             and standard deviation for each numeric column.
         """
+        numerical_columns = self.dataframe.select_dtypes(include=[np.number])
+
         statistics = {
-            'mean': self.dataframe.mean(),
-            'median': self.dataframe.median(),
-            'std_dev': self.dataframe.std()
+            'mean': numerical_columns.mean(),
+            'median': numerical_columns.median(),
+            'std_dev': numerical_columns.std()
         }
+
         return pd.DataFrame(statistics)
 
     def count_distinct_values(self) -> pd.DataFrame:
