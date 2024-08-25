@@ -5,8 +5,9 @@ from sqlalchemy import create_engine
 
 
 def load_data_from_csv(file_path: str) -> pd.DataFrame:
-    # Load the data
+    # Load the data into a DataFrame
     data = pd.read_csv(file_path)
+
     return data
 
 
@@ -14,6 +15,7 @@ def load_data_from_csv(file_path: str) -> pd.DataFrame:
 def load_db_credentials(file_path: str = 'credentials.yaml') -> dict:
     with open(file_path, 'r') as file:
         credentials = yaml.safe_load(file)
+
     return credentials
 
 
@@ -39,6 +41,7 @@ class RDSDatabaseConnector:
         """
         with self.engine.connect() as connection:
             result = pd.read_sql(query, connection)
+
         return result
 
     def save_data_to_csv(self, data_frame, filename):
@@ -83,29 +86,25 @@ class DataFrameInfo:
 
     def __init__(self, dataframe: pd.DataFrame):
         """
-        Initialize with a DataFrame.
+        Initialise with a DataFrame.
 
         Parameters:
-            dataframe (pd.DataFrame): The DataFrame to analyze.
+            dataframe (pd.DataFrame): The DataFrame to analyse.
         """
         self.dataframe = dataframe
 
     def describe_columns(self) -> pd.DataFrame:
         """
-        Describe numeric columns in the DataFrame to check their data types.
+        Describe all columns in the DataFrame to check their data types.
 
         Returns:
-            pd.DataFrame: Summary statistics of numeric DataFrame columns.
+            pd.DataFrame: Summary statistics of all DataFrame columns.
         """
-        # Select only numeric columns
-        numeric_data = self.dataframe.select_dtypes(include=[np.number])
+        # Display all columns in the DataFrame
+        pd.set_option('display.max_columns', None)
 
-        # Adjust display options to limit output size
-        pd.set_option('display.max_rows', 10)
-        pd.set_option('display.max_columns', 10)
-
-        # Return description of numeric columns
-        return numeric_data.describe()
+        # Return description of all columns, including non-numeric ones
+        return self.dataframe.describe(include='all')
 
     def extract_statistics(self) -> pd.DataFrame:
         """
@@ -116,35 +115,44 @@ class DataFrameInfo:
             pd.DataFrame: A DataFrame containing the mean, median,
             and standard deviation for each numeric column.
         """
+        # Select only the numerical columns
         numerical_columns = self.dataframe.select_dtypes(include=[np.number])
+
+        # Exclude the 'UDI' column
+        numerical_columns = numerical_columns.drop(columns=['UDI'],
+                                                   errors='ignore')
 
         statistics = {
             'mean': numerical_columns.mean(),
             'median': numerical_columns.median(),
             'std_dev': numerical_columns.std()
         }
-
         return pd.DataFrame(statistics)
 
     def count_distinct_values(self) -> pd.DataFrame:
         """
-        Count distinct values in all columns of the DataFrame.
+        Count distinct values in categorical columns of the DataFrame.
 
         Returns:
             pd.DataFrame: A DataFrame with the count of distinct values
-            for each column.
+            for each categorical column.
         """
+        categorical_columns = self.dataframe.select_dtypes(
+            include=['object', 'category', 'bool']
+            ).columns
         distinct_values = {
             column: self.dataframe[column].nunique()
-            for column in self.dataframe.columns
+            for column in categorical_columns if column != 'Product ID'
         }
         return pd.DataFrame.from_dict(distinct_values,
                                       orient='index',
                                       columns=['distinct_count'])
 
     def print_shape(self) -> None:
-        """ Print out the shape of the DataFrame. """
-        print(f"DataFrame shape: {self.dataframe.shape}")
+        """
+        Print out the shape of the DataFrame.
+        """
+        print(f"\nDataFrame shape: {self.dataframe.shape}")
 
     def count_null_values(self) -> pd.DataFrame:
         """
@@ -152,10 +160,14 @@ class DataFrameInfo:
 
         Returns:
             pd.DataFrame: A DataFrame showing the count and percentage of
-            NULL values for each column.
+            NULL values for each column, excluding 'UDI' and 'Product ID'.
         """
-        null_count = self.dataframe.isnull().sum()
-        null_percentage = (null_count / len(self.dataframe)) * 100
+        # Exclude 'UDI' and 'Product ID' columns
+        df_filtered = self.dataframe.drop(columns=['UDI', 'Product ID'])
+
+        null_count = df_filtered.isnull().sum()
+        null_percentage = (null_count / len(df_filtered)) * 100
+
         null_info = pd.DataFrame({
             'null_count': null_count,
             'null_percentage': null_percentage
@@ -165,7 +177,7 @@ class DataFrameInfo:
 
 if __name__ == "__main__":
     """
-    Initializes the RDSDatabaseConnector with
+    Initialises the RDSDatabaseConnector with
     the provided database credentials.
 
     Parameters:
@@ -207,13 +219,15 @@ if __name__ == "__main__":
         # --- Extract and display information about the DataFrame,
         # Using the DataFrameInfo class ---
 
-        # Initialize the DataFrameInfo class with the loaded data
+        # Initialise the DataFrameInfo class with the loaded data
         data_info = DataFrameInfo(loaded_data)
-        print(data_info.describe_columns())
-        print(data_info.extract_statistics())
+
+        # Display the extracted information
+        print("\nColumn Descriptions:\n", data_info.describe_columns())
+        print("\nExtracted Statistics:\n", data_info.extract_statistics())
+        print("\nDistinct Value Counts:\n", data_info.count_distinct_values())
         data_info.print_shape()
-        print(data_info.count_distinct_values())
-        print(data_info.count_null_values())
+        print("\nNull Value Counts:\n", data_info.count_null_values())
 
     else:
         print("No data was fetched from the database.")
