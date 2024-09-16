@@ -1,5 +1,8 @@
+import matplotlib.pyplot as plt
+import missingno as msno
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import yaml
 from sqlalchemy import create_engine
 
@@ -53,8 +56,9 @@ class RDSDatabaseConnector:
         self.engine.dispose()
 
 
-# Class to transform the data as needed
 class DataTransform:
+    """Class to transform the data as needed"""
+
     def __init__(self, dataframe: pd.DataFrame):
         self.dataframe = dataframe
 
@@ -76,6 +80,85 @@ class DataTransform:
             column_name (str): The name of the column to convert.
         """
         self.dataframe[column_name] = self.dataframe[column_name].astype(bool)
+
+
+class Plotter:
+    """ --- Class to visualise insights from the data --- """
+
+    def __init__(self, dataframe):
+        self.dataframe = dataframe
+
+    def scatter_plot(self, x_column, y_column):
+        """ Scatter Plot: To identify outliers """
+        plt.figure(figsize=(8, 6))
+        plt.scatter(self.dataframe[x_column], self.dataframe[y_column])
+        plt.title(f'Scatter Plot: {x_column} vs {y_column}')
+        plt.xlabel(x_column)
+        plt.ylabel(y_column)
+        plt.show()
+
+    def scatter_multiple_plots(self, column_pairs):
+        num_plots = len(column_pairs)
+        cols = 3  # Set number of columns
+
+        # Dynamically calculate rows based on the number of plots and columns
+        rows = (num_plots // cols) + (num_plots % cols > 0)
+
+        # Adjust figure size based on number of rows and columns
+        plt.figure(figsize=(5 * cols, 5 * rows))
+
+        for i, (x_col, y_col) in enumerate(column_pairs, 1):
+            plt.subplot(rows, cols, i)  # Create subplot with dynamic row count
+            plt.scatter(self.dataframe[x_col], self.dataframe[y_col])
+            plt.title(f'{x_col} vs {y_col}')
+            plt.xlabel(x_col)
+            plt.ylabel(y_col)
+
+        plt.tight_layout()  # Ensures spacing between plots
+        plt.show()
+
+    def plot_histogram(self, column):
+        """ Histogram: to understand distribution of numerical columns """
+        plt.figure(figsize=(8, 6))
+        self.dataframe[column].hist(bins=20)
+        plt.title(f'Histogram of {column}')
+        plt.xlabel(column)
+        plt.ylabel('Frequency')
+        plt.show()
+
+    def bar_plot_categorical(self, column):
+        """ Bar Plots for Categorical Data """
+        plt.figure(figsize=(8, 6))
+        self.dataframe[column].value_counts().plot(kind='bar')
+        plt.title(f'Bar Plot of {column}')
+        plt.xlabel(column)
+        plt.ylabel('Count')
+        plt.show()
+
+    def correlation_heatmap(self):
+        """ Heatmap of Correlations: For numerical columns """
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            self.dataframe.corr(), annot=True, cmap='coolwarm', fmt='.2f')
+        plt.title('Correlation Heatmap')
+        plt.show()
+
+    def missing_data_matrix(self):
+        """ Missing Data Matrix (via missingno) """
+        plt.figure(figsize=(10, 6))
+        msno.matrix(self.dataframe)
+        plt.title('Missing Data Matrix')
+        plt.show()
+
+    def plot_boxplot(self, column, by=None):
+        """ Boxplots: For visualising outliers & variance across categories """
+        plt.figure(figsize=(8, 6))
+        if by:
+            sns.boxplot(x=by, y=column, data=self.dataframe)
+        else:
+            sns.boxplot(x=self.dataframe[column])
+        plt.title(f'Boxplot of {column}')
+        plt.show()
 
 
 class DataFrameInfo:
@@ -229,6 +312,41 @@ if __name__ == "__main__":
         data_info.print_shape()
         print("\nNull Value Counts:\n", data_info.count_null_values())
 
+        # --- Plotting Section using Plotter class --- #
+
+        # Initialise the Plotter class with loaded_data
+        plotter = Plotter(loaded_data)
+
+        # Create visualisations
+        print("\nGenerating visualisations...")
+
+        # Scatter Plot to identify outliers
+        column_pairs = [
+            ('Air temperature [K]', 'Process temperature [K]'),
+            ('Rotational speed [rpm]', 'Torque [Nm]'),
+            ('Tool wear [min]', 'Rotational speed [rpm]'),
+            ('Tool wear [min]', 'Process temperature [K]'),
+            ('Tool wear [min]', 'Machine failure')
+        ]
+
+        plotter.scatter_multiple_plots(column_pairs)
+
+        """
+        # Histogram to understand distribution of numeric columns
+        plotter.plot_histogram(column='Air temperature [K]')
+
+        # Bar plot for categorical data
+        plotter.bar_plot_categorical(column='Type')
+
+        # Heatmap of correlations
+        plotter.correlation_heatmap()
+
+        # Missing data matrix
+        plotter.missing_data_matrix()
+
+        # Boxplot for outliers
+        plotter.plot_boxplot(column='Torque [Nm]', by='Type')
+        """
     else:
         print("No data was fetched from the database.")
 
