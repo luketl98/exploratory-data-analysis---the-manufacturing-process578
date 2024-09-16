@@ -117,47 +117,77 @@ class Plotter:
         plt.tight_layout()  # Ensures spacing between plots
         plt.show()
 
-    def plot_histogram(self, column):
-        """ Histogram: to understand distribution of numerical columns """
-        plt.figure(figsize=(8, 6))
-        self.dataframe[column].hist(bins=20)
-        plt.title(f'Histogram of {column}')
-        plt.xlabel(column)
-        plt.ylabel('Frequency')
+    def plot_histograms(self):
+        """
+        Generate histograms for all numerical columns, excluding specific ones.
+        """
+        numeric_cols = self.dataframe.select_dtypes(
+            include=[np.number]).columns
+        cols_to_exclude = ['UDI']  # Columns to exclude
+        numeric_cols = [
+            col for col in numeric_cols if col not in cols_to_exclude
+        ]
+        self.dataframe[numeric_cols].hist(bins=20, figsize=(15, 10))
+        plt.tight_layout()
         plt.show()
 
-    def bar_plot_categorical(self, column):
-        """ Bar Plots for Categorical Data """
-        plt.figure(figsize=(8, 6))
-        self.dataframe[column].value_counts().plot(kind='bar')
-        plt.title(f'Bar Plot of {column}')
-        plt.xlabel(column)
-        plt.ylabel('Count')
-        plt.show()
+    def plot_bar_plots(self):
+        """
+        Generate bar plots for all categorical columns,
+        excluding specific ones.
+        """
+        categorical_cols = self.dataframe.select_dtypes(
+            include=['category', 'object']).columns
+        cols_to_exclude = ['Product ID']  # Specify columns to exclude
+        categorical_cols = [
+            col for col in categorical_cols if col not in cols_to_exclude
+        ]
+
+        for col in categorical_cols:
+            plt.figure(figsize=(8, 6))
+            self.dataframe[col].value_counts().plot(kind='bar')
+            plt.title(f'Bar Plot of {col}')
+            plt.xlabel(col)
+            plt.ylabel('Count')
+            plt.tight_layout()
+            plt.show()
 
     def correlation_heatmap(self):
-        """ Heatmap of Correlations: For numerical columns """
+        """
+        Generate a heatmap of correlations for numerical columns.
+        """
         plt.figure(figsize=(10, 8))
-        sns.heatmap(
-            self.dataframe.corr(), annot=True, cmap='coolwarm', fmt='.2f')
+        numeric_cols = self.dataframe.select_dtypes(include=[np.number])
+
+        sns.heatmap(numeric_cols.corr(), annot=True,
+                    cmap='coolwarm', fmt='.2f')
         plt.title('Correlation Heatmap')
+        plt.tight_layout()
         plt.show()
 
     def missing_data_matrix(self):
         """ Missing Data Matrix (via missingno) """
-        plt.figure(figsize=(10, 6))
-        msno.matrix(self.dataframe)
-        plt.title('Missing Data Matrix')
+        msno.matrix(self.dataframe, figsize=(14, 6), sparkline=False)
         plt.show()
 
-    def plot_boxplot(self, column, by=None):
-        """ Boxplots: For visualising outliers & variance across categories """
-        plt.figure(figsize=(8, 6))
-        if by:
-            sns.boxplot(x=by, y=column, data=self.dataframe)
-        else:
-            sns.boxplot(x=self.dataframe[column])
-        plt.title(f'Boxplot of {column}')
+    def plot_boxplots(self):
+        """ Boxplots for all numeric columns in one figure """
+        numeric_columns = self.dataframe.select_dtypes(
+            include=[np.number]).columns
+        num_cols = len(numeric_columns)
+
+        # Adjust rows and columns based on the number of plots
+        cols = 3
+        rows = (num_cols // cols) + (num_cols % cols > 0)
+
+        plt.figure(figsize=(12, 6 * rows))
+
+        for i, col in enumerate(numeric_columns, 1):
+            plt.subplot(rows, cols, i)
+            sns.boxplot(x=self.dataframe[col])
+            plt.title(f'Boxplot of {col}')
+
+        plt.tight_layout()
         plt.show()
 
 
@@ -331,12 +361,11 @@ if __name__ == "__main__":
 
         plotter.scatter_multiple_plots(column_pairs)
 
-        """
         # Histogram to understand distribution of numeric columns
-        plotter.plot_histogram(column='Air temperature [K]')
+        plotter.plot_histograms()
 
         # Bar plot for categorical data
-        plotter.bar_plot_categorical(column='Type')
+        plotter.plot_bar_plots()
 
         # Heatmap of correlations
         plotter.correlation_heatmap()
@@ -345,8 +374,8 @@ if __name__ == "__main__":
         plotter.missing_data_matrix()
 
         # Boxplot for outliers
-        plotter.plot_boxplot(column='Torque [Nm]', by='Type')
-        """
+        plotter.plot_boxplots()
+
     else:
         print("No data was fetched from the database.")
 
