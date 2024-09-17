@@ -63,22 +63,12 @@ class DataTransform:
         self.dataframe = dataframe
 
     def convert_to_categorical(self, column_name: str):
-        """
-        Convert the specified column to a categorical data type.
-
-        Parameters:
-            column_name (str): The name of the column to convert.
-        """
+        """ Convert the specified column to a categorical data type. """
         self.dataframe[column_name] = self.dataframe[
             column_name].astype('category')
 
     def convert_to_boolean(self, column_name: str):
-        """
-        Convert the specified column to a boolean data type.
-
-        Parameters:
-            column_name (str): The name of the column to convert.
-        """
+        """ Convert the specified column to a boolean data type. """
         self.dataframe[column_name] = self.dataframe[column_name].astype(bool)
 
 
@@ -190,6 +180,22 @@ class Plotter:
         plt.tight_layout()
         plt.show()
 
+    def plot_null_comparison(self, null_counts_before, null_counts_after):
+        """Plot to compare null counts before and after imputation. """
+
+        # Create a DataFrame with before and after null counts
+        null_data = pd.DataFrame({
+            'Before Imputation': null_counts_before['null_count'],
+            'After Imputation': null_counts_after['null_count']
+        })
+
+        # Plot the data
+        null_data.plot(kind='bar')
+        plt.title('Null Count Before and After Imputation')
+        plt.ylabel('Null Count')
+        plt.tight_layout()
+        plt.show()
+
 
 class DataFrameInfo:
     """
@@ -288,69 +294,108 @@ class DataFrameInfo:
         return null_info
 
 
+class DataFrameTransform:
+    """Class to perform EDA transformations on the DataFrame."""
+
+    def __init__(self, dataframe: pd.DataFrame):
+        self.dataframe = dataframe
+
+    def drop_columns_with_nulls(self, threshold: float = 0.5):
+        """
+        Drop columns where the percentage of missing values
+        exceeds the given threshold.
+
+        Parameters:
+            threshold (float): The maximum percentage of null values
+            allowed (default is 50%) - To adjust: Change threshold.
+        """
+        # Calculate the percentage of null values in each column
+        null_percentage = self.dataframe.isnull().mean()
+
+        # Drop columns exceeding the threshold
+        columns_to_drop = null_percentage[null_percentage > threshold].index
+        self.dataframe.drop(columns=columns_to_drop, inplace=True)
+
+        return columns_to_drop
+
+    def impute_missing_values(self, strategies=None):
+        """
+        Impute missing numeric values in the DataFrame
+        based on the provided strategy.
+
+        Parameters:
+            strategies : Best to use a dictionary in main execution block
+            where the key is the column name, and the value is the imputation
+            strategy ('mean' or 'median').
+        """
+        # Select numeric columns
+        numeric_columns = self.dataframe.select_dtypes(include=[np.number])
+
+        # Find numeric columns with null values
+        numeric_columns_with_nulls = numeric_columns.loc[
+            :, numeric_columns.isnull().any()
+        ]
+
+        if strategies is None:
+            strategies = {col: 'median' for col in numeric_columns_with_nulls}
+
+        for column, strategy in strategies.items():
+            if column in numeric_columns_with_nulls:
+                if strategy == 'mean':
+                    self.dataframe[column].fillna(
+                        self.dataframe[column].mean(), inplace=True)
+                elif strategy == 'median':
+                    self.dataframe[column].fillna(
+                        self.dataframe[column].median(), inplace=True)
+
+
 if __name__ == "__main__":
     """
-    Initialises the RDSDatabaseConnector with
-    the provided database credentials.
-
-    Parameters:
-        credentials (dict): A dictionary containing the database credentials.
+    Main execution block to load data, transform it,
+    perform EDA, and visualise results.
     """
+
+    # Load database credentials
     credentials = load_db_credentials('credentials.yaml')
     db_connector = RDSDatabaseConnector(credentials)
 
-    # Define the SQL query for the required data
-    query = "SELECT * FROM failure_data;"  # Adjust this query as needed
-
-    # Fetch data from the database
+    # Define and execute SQL query to fetch data
+    query = "SELECT * FROM failure_data;"
     data = db_connector.fetch_data(query)
 
-    # Save the fetched data to a CSV file, if data is not empty
     if not data.empty:
         csv_filename = 'failure_data.csv'
         db_connector.save_data_to_csv(data, csv_filename)
-        print("\nData successfully saved to 'failure_data.csv'.")
+        print(f"\nData successfully saved to '{csv_filename}'.")
 
-        # Load the data from the CSV file and print its characteristics
         print("\nLoading data from CSV to verify contents:")
         loaded_data = load_data_from_csv(csv_filename)
 
-        # Pass the loaded data to the DataTransform class
+        # Initialize DataTransform class for transformations
         transformer = DataTransform(loaded_data)
 
-        # --- Apply the transformations: --- #
-
-        # Convert 'Type' to categorical
+        # Convert 'Type' to categorical and failure indicators to boolean
         transformer.convert_to_categorical('Type')
-
-        # Convert failure indicators to boolean
         failure_columns = ['Machine failure', 'TWF',
                            'HDF', 'PWF', 'OSF', 'RNF']
         for col in failure_columns:
             transformer.convert_to_boolean(col)
 
-        # --- Extract and display information about the DataFrame,
-        # Using the DataFrameInfo class ---
-
-        # Initialise the DataFrameInfo class with the loaded data
+        # DataFrameInfo for basic EDA insights
         data_info = DataFrameInfo(loaded_data)
-
-        # Display the extracted information
         print("\nColumn Descriptions:\n", data_info.describe_columns())
         print("\nExtracted Statistics:\n", data_info.extract_statistics())
         print("\nDistinct Value Counts:\n", data_info.count_distinct_values())
         data_info.print_shape()
-        print("\nNull Value Counts:\n", data_info.count_null_values())
 
-        # --- Plotting Section using Plotter class --- #
+        # Null count before imputation:
+        initial_null_count = data_info.count_null_values()
+        print("\nNull Value Counts:\n", initial_null_count)
 
-        # Initialise the Plotter class with loaded_data
+        # Plotter class for visualisations
         plotter = Plotter(loaded_data)
-
-        # Create visualisations
         print("\nGenerating visualisations...")
 
-        # Scatter Plot to identify outliers
         column_pairs = [
             ('Air temperature [K]', 'Process temperature [K]'),
             ('Rotational speed [rpm]', 'Torque [Nm]'),
@@ -358,23 +403,37 @@ if __name__ == "__main__":
             ('Tool wear [min]', 'Process temperature [K]'),
             ('Tool wear [min]', 'Machine failure')
         ]
-
         plotter.scatter_multiple_plots(column_pairs)
-
-        # Histogram to understand distribution of numeric columns
         plotter.plot_histograms()
-
-        # Bar plot for categorical data
         plotter.plot_bar_plots()
-
-        # Heatmap of correlations
         plotter.correlation_heatmap()
-
-        # Missing data matrix
         plotter.missing_data_matrix()
-
-        # Boxplot for outliers
         plotter.plot_boxplots()
+        print('Visualisation complete.')
+
+        # DataFrameTransform for null imputation and checking results
+        df_transform = DataFrameTransform(loaded_data)
+
+        # Drop columns with excessive nulls (>50%)
+        df_transform.drop_columns_with_nulls()
+
+        # Impute null values with the specified strategies
+        imputation_strategy = {
+            'Air temperature [K]': 'mean',
+            'Process temperature [K]': 'median',
+            'Tool wear [min]': 'median'
+        }
+        df_transform.impute_missing_values(imputation_strategy)
+
+        # Re-run null count after imputation and compare
+        post_impute_null_count = data_info.count_null_values()
+        print("\nNull Value Counts after imputation:\n",
+              post_impute_null_count)
+
+        # Visualise null value imputation comparison
+        plotter.plot_null_comparison(
+            initial_null_count, post_impute_null_count
+                )
 
     else:
         print("No data was fetched from the database.")
