@@ -8,7 +8,7 @@
 - [License](#license)
 
 ## Project Description
-This project is designed to optimise a manufacturing machine process to increase efficiency and profitability. The aim is to use data analysis to identify key factors that affect machine performance and suggest improvements. Throughout this project, I've learned to apply various data analysis techniques in Python using libraries like Pandas and SQLAlchemy.
+This project is designed to optimise a manufacturing machine process to increase efficiency and profitability. The aim is to use exploratory data analysis (EDA) to identify key factors that affect machine performance and suggest improvements. Utilising packages such as; matplotlib, numpy, pandas, seaborn, scipy, SQLalchemy, to visualise data using a range of methods, extract and display information for EDA, impute missing data, apply transformations and more.
 
 ## Installation Instructions
 1. Clone the repository: git clone #TODO Add git repository here
