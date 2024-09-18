@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import yaml
+from scipy import stats
+from statsmodels.graphics.gofplots import qqplot
 from sqlalchemy import create_engine
 
 
@@ -131,7 +133,7 @@ class Plotter:
         cols_to_exclude = ['Product ID']  # Specify columns to exclude
         categorical_cols = [
             col for col in categorical_cols if col not in cols_to_exclude
-        ]
+        ]  # TODO: ^ Explain this in comments --
 
         for col in categorical_cols:
             plt.figure(figsize=(8, 6))
@@ -293,6 +295,69 @@ class DataFrameInfo:
         })
         return null_info
 
+    def identify_skewness(self):
+        """Identify skewness for all numeric columns and plot histograms."""
+        numeric_columns = self.dataframe.select_dtypes(
+            include=[np.number]).columns
+
+        # Create subplots
+        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 10))
+        axes = axes.flatten()
+
+        for i, column in enumerate(numeric_columns):
+            skew_value = self.dataframe[column].skew()
+            self.dataframe[column].hist(bins=50, ax=axes[i])
+            axes[i].set_title(f'{column} (Skew: {skew_value:.2f})')
+
+        plt.suptitle('Skewness of numeric columns')
+        plt.show()
+
+    def qq_plots(self):
+        """Create a Q-Q plot to help in asessing skewness of data"""
+        # Loop through numeric columns and create Q-Q plots
+        numeric_columns = self.dataframe.select_dtypes(
+            include=[np.number]).columns
+        num_plots = len(numeric_columns)
+        cols = 3  # Set how many plots per row
+        rows = (num_plots // cols) + (num_plots % cols > 0)
+
+        plt.figure(figsize=(5 * cols, 5 * rows))
+
+        for i, col in enumerate(numeric_columns, 1):
+            plt.subplot(rows, cols, i)
+            qqplot(self.dataframe[col], line='q', ax=plt.gca())
+            plt.title(f"Q-Q plot of {col}")
+
+        plt.tight_layout()
+        plt.show()
+
+    def visualise_transformed_column(self, column: str,
+                                     original: pd.Series,
+                                     transformed: pd.Series):
+        """
+        Visualise the original vs transformed column and show skew values.
+        """
+        # Calculate skew values
+        original_skew = original.skew()
+        transformed_skew = pd.Series(transformed).skew()
+
+        # Create the plots
+        plt.figure(figsize=(12, 6))
+
+        # Plot the original data
+        plt.subplot(1, 2, 1)
+        plt.hist(original, bins=30, color='blue', alpha=0.7)
+        plt.title(f'Original {column} (Skew: {original_skew:.2f})')
+
+        # Plot the transformed data
+        plt.subplot(1, 2, 2)
+        plt.hist(transformed, bins=30, color='green', alpha=0.7)
+        plt.title(f'Transformed {column} (Skew: {transformed_skew:.2f})')
+
+        # Add a main title and show the plots
+        plt.suptitle(f'Original vs Transformed {column}')
+        plt.show()
+
 
 class DataFrameTransform:
     """Class to perform EDA transformations on the DataFrame."""
@@ -348,6 +413,63 @@ class DataFrameTransform:
                     self.dataframe[column].fillna(
                         self.dataframe[column].median(), inplace=True)
 
+    def apply_yeo_johnson(self, column: str):
+        """
+        Apply Yeo-Johnson transformation to the specified column and
+        replace the original column with the transformed values.
+
+        Parameters:
+            column (str): The name of the column to transform.
+        """
+        # Perform Yeo-Johnson transformation
+        transformed_column, _ = stats.yeojohnson(self.dataframe[column])
+
+        # Update the DataFrame with the transformed values
+        self.dataframe[column] = transformed_column
+
+        print(f'Yeo-Johnson transformation applied to {column}')
+
+    def view_transformations(self, column: str):
+        """
+        Apply Log, Box-Cox, and Yeo-Johnson transformations to the specified
+        column. Print skewness post-transformation and plot the distributions.
+        """
+
+        # Handle log transformation (requires values > 0)
+        log_transformed = np.log1p(self.dataframe[column])
+        log_skew = log_transformed.skew()
+        print(f"Log Transform Skewness of {column}: {log_skew}")
+
+        # Handle Box-Cox transformation (requires positive values)
+        # Add a small constant to ensure all values are positive
+        boxcox_transformed, _ = stats.boxcox(self.dataframe[column] + 1)
+        boxcox_skew = stats.skew(boxcox_transformed)
+        print(f"Box-Cox Transform Skewness of {column}: {boxcox_skew}")
+
+        # Handle Yeo-Johnson transformation
+        # ^(works with both positive and negative)
+        yeo_transformed, _ = stats.yeojohnson(self.dataframe[column])
+        yeo_skew = stats.skew(yeo_transformed)
+        print(f"Yeo-Johnson Transform Skewness of {column}: {yeo_skew}")
+
+        # Plot all transformations
+        plt.figure(figsize=(15, 5))
+
+        plt.subplot(1, 3, 1)
+        plt.hist(log_transformed, bins=30, color='blue')
+        plt.title(f'Log Transform (Skew: {log_skew:.2f})')
+
+        plt.subplot(1, 3, 2)
+        plt.hist(boxcox_transformed, bins=30, color='green')
+        plt.title(f'Box-Cox Transform (Skew: {boxcox_skew:.2f})')
+
+        plt.subplot(1, 3, 3)
+        plt.hist(yeo_transformed, bins=30, color='red')
+        plt.title(f'Yeo-Johnson Transform (Skew: {yeo_skew:.2f})')
+
+        plt.suptitle(f'Transformations of {column}')
+        plt.show()
+
 
 if __name__ == "__main__":
     """
@@ -392,6 +514,8 @@ if __name__ == "__main__":
         initial_null_count = data_info.count_null_values()
         print("\nNull Value Counts:\n", initial_null_count)
 
+        df_transform = DataFrameTransform(loaded_data)
+        """
         # Plotter class for visualisations
         plotter = Plotter(loaded_data)
         print("\nGenerating visualisations...")
@@ -412,7 +536,7 @@ if __name__ == "__main__":
         print('Visualisation complete.')
 
         # DataFrameTransform for null imputation and checking results
-        df_transform = DataFrameTransform(loaded_data)
+        # df_transform = DataFrameTransform(loaded_data)
 
         # Drop columns with excessive nulls (>50%)
         df_transform.drop_columns_with_nulls()
@@ -434,6 +558,33 @@ if __name__ == "__main__":
         plotter.plot_null_comparison(
             initial_null_count, post_impute_null_count
                 )
+        """
+        # Generate histograms to identify skewness and get .skew() value
+        data_info.identify_skewness()
+        # Create a Q-Q plot to help in asessing skewness of data
+        data_info.qq_plots()
+
+        # View effects of different transformations on selected column
+        df_transform.view_transformations('Rotational speed [rpm]')
+
+        # -- Comparison of plots to see if transformation has worked --
+
+        # After applying the Yeo-Johnson transformation
+        # Store the original data and transformed data
+
+        original_data = data_info.dataframe['Rotational speed [rpm]']
+
+        # Perform the Yeo-Johnson transformation on the specified column
+        yeo_transformed_data, _ = stats.yeojohnson(
+            df_transform.dataframe['Rotational speed [rpm]']
+        )
+
+        # Visualise the original vs transformed data
+        data_info.visualise_transformed_column(
+            column='Rotational speed [rpm]',
+            original=original_data,
+            transformed=yeo_transformed_data
+        )
 
     else:
         print("No data was fetched from the database.")
