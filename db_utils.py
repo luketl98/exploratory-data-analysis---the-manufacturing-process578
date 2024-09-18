@@ -198,6 +198,12 @@ class Plotter:
         plt.tight_layout()
         plt.show()
 
+    def pair_plot(self):
+        """Generate a pair plot for the entire dataframe."""
+        sns.pairplot(self.dataframe)
+        plt.gcf().set_size_inches(10, 8)  # Adjust the size of the window
+        plt.show()
+
 
 class DataFrameInfo:
     """
@@ -358,6 +364,35 @@ class DataFrameInfo:
         plt.suptitle(f'Original vs Transformed {column}')
         plt.show()
 
+    def detect_outliers_zscore(self, column: str, threshold: float = 3.0):
+        """
+        Detect outliers in a column using the Z-score method.
+
+        Parameters:
+            column (str): The column to detect outliers in.
+            threshold (float): The Z-score threshold to identify outliers.
+        """
+        z_scores = stats.zscore(self.dataframe[column])
+        outliers = self.dataframe[(
+            z_scores > threshold) | (z_scores < -threshold)]
+        return outliers
+
+    def detect_outliers_iqr(self, column: str):
+        """
+        Detect outliers in a column using the IQR method.
+
+        Parameters:
+            column (str): The column to detect outliers in.
+        """
+        Q1 = self.dataframe[column].quantile(0.25)
+        Q3 = self.dataframe[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        outliers = self.dataframe[(self.dataframe[column] < lower_bound) |
+                                  (self.dataframe[column] > upper_bound)]
+        return outliers
+
 
 class DataFrameTransform:
     """Class to perform EDA transformations on the DataFrame."""
@@ -429,7 +464,7 @@ class DataFrameTransform:
 
         print(f'Yeo-Johnson transformation applied to {column}')
 
-    def view_transformations(self, column: str):
+    def preview_transformations(self, column: str):
         """
         Apply Log, Box-Cox, and Yeo-Johnson transformations to the specified
         column. Print skewness post-transformation and plot the distributions.
@@ -469,6 +504,44 @@ class DataFrameTransform:
 
         plt.suptitle(f'Transformations of {column}')
         plt.show()
+
+    def save_transformed_data(self, filename: str = 'transformed_data.csv'):
+        """
+        Save the transformed DataFrame to a CSV file.
+
+        Parameters:
+            filename (str): The name of the CSV file to save the DataFrame to.
+                            Defaults to 'transformed_data.csv'.
+        """
+        self.dataframe.to_csv(filename, index=False)
+        print(f"Transformed data successfully saved to {filename}")
+
+    def drop_columns(self, columns_to_drop: list):
+        """
+        Drop specified columns from the DataFrame.
+
+        Parameters:
+            columns_to_drop (list): A list of column names to drop.
+
+        Returns:
+            pd.DataFrame: The modified DataFrame with the columns dropped.
+        """
+        print(f"Columns to be dropped: {columns_to_drop}")
+
+        # Ensure only valid columns are dropped
+        valid_columns = [
+            col for col in columns_to_drop if col in self.dataframe.columns
+            ]
+
+        if not valid_columns:
+            print("No valid columns to drop.")
+            return self.dataframe
+
+        # Drop the specified columns
+        self.dataframe.drop(columns=valid_columns, inplace=True)
+
+        print(f"Successfully dropped: {valid_columns}")
+        return self.dataframe
 
 
 if __name__ == "__main__":
@@ -515,9 +588,11 @@ if __name__ == "__main__":
         print("\nNull Value Counts:\n", initial_null_count)
 
         df_transform = DataFrameTransform(loaded_data)
-        """
+
         # Plotter class for visualisations
         plotter = Plotter(loaded_data)
+        plotter.correlation_heatmap()
+        """
         print("\nGenerating visualisations...")
 
         column_pairs = [
@@ -559,13 +634,16 @@ if __name__ == "__main__":
             initial_null_count, post_impute_null_count
                 )
         """
+        # Generate pair plot
+        plotter.pair_plot()
+
         # Generate histograms to identify skewness and get .skew() value
         data_info.identify_skewness()
         # Create a Q-Q plot to help in asessing skewness of data
         data_info.qq_plots()
 
         # View effects of different transformations on selected column
-        df_transform.view_transformations('Rotational speed [rpm]')
+        df_transform.preview_transformations('Rotational speed [rpm]')
 
         # -- Comparison of plots to see if transformation has worked --
 
@@ -579,12 +657,40 @@ if __name__ == "__main__":
             df_transform.dataframe['Rotational speed [rpm]']
         )
 
+        # Update the dataframe with the transformed data
+        df_transform.dataframe['Rotational speed [rpm]'] = yeo_transformed_data
+
         # Visualise the original vs transformed data
         data_info.visualise_transformed_column(
             column='Rotational speed [rpm]',
             original=original_data,
             transformed=yeo_transformed_data
         )
+
+        df_transform.save_transformed_data('transformed_failure_data.csv')
+
+        # Visualise scatter plots to identify outliers
+        plotter.scatter_multiple_plots(column_pairs=[
+            ('Air temperature [K]', 'Process temperature [K]'),
+            ('Rotational speed [rpm]', 'Torque [Nm]'),
+            ('Tool wear [min]', 'Rotational speed [rpm]')
+        ])
+
+        # Boxplots for outlier detection
+        plotter.plot_boxplots()
+
+        # Z-score outliers for 'Rotational speed [rpm]'
+        zscore_outliers = data_info.detect_outliers_zscore(
+            'Rotational speed [rpm]')
+        print(f"Z-score Outliers:\n{zscore_outliers}")
+
+        # IQR outliers for 'Rotational speed [rpm]'
+        iqr_outliers = data_info.detect_outliers_iqr('Rotational speed [rpm]')
+        print(f"IQR Outliers:\n{iqr_outliers}")
+
+        # Drop columns you want to remove
+        columns_to_drop = ['Air temperature [K]']  # Specify the columns here
+        df_transform.drop_columns(columns_to_drop)
 
     else:
         print("No data was fetched from the database.")
