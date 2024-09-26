@@ -455,23 +455,35 @@ class DataFrameTransform:
 
         return columns_to_drop
 
-    def knn_impute(self, columns, n_neighbors=5):
+    def knn_impute(self, target_column, correlated_columns, n_neighbors=5):
         """
-        Apply KNN imputation to the specified columns.
+        Apply KNN imputation to the target column using only the specified
+        correlated columns.
 
         Parameters:
-            columns (list): The columns where KNN imputation should be applied.
-            n_neighbors (int): The no. of neighbors to consider for imputation.
+            target_column (str): The name of the column to impute.
+            correlated_columns (list): List of correlated columns to use for
+                                       KNN imputation.
+            n_neighbors (int): The number of neighbors to consider
+                               for imputation.
         """
+        # Select the target column along with the correlated columns
+        columns_to_use = correlated_columns + [target_column]
+
+        knn_data = self.dataframe[columns_to_use]
+
+        # Perform KNN imputation on these columns
         knn_imputer = KNNImputer(n_neighbors=n_neighbors)
+        imputed_data = knn_imputer.fit_transform(knn_data)
 
-        # Perform KNN imputation only on the specified columns
-        self.dataframe[columns] = knn_imputer.fit_transform(
-            self.dataframe[columns])
-        print(f"\nKNN imputation applied to columns: {columns}")
-        # TODO: ^ printing twice in terminal
+        # Replace the target column with the imputed values
+        # (last column is target)
+        self.dataframe[target_column] = imputed_data[:, -1]
 
-    def impute_missing_values(self, strategies=None):
+        print(f"KNN imputation applied to {target_column}"
+              f"using {correlated_columns}")
+
+    def impute_missing_values(self, strategies=None, knn_columns=None):
         """
         Impute missing numeric values in the DataFrame based on the provided
         strategy.
@@ -480,34 +492,39 @@ class DataFrameTransform:
             strategies : dict, optional
                 A dictionary where the key is the column name, and the value is
                 the imputation strategy ('mean', 'median', 'knn').
+            knn_columns : dict, optional
+                Dictionary where the key is the column to impute, and the value
+                is the list of correlated columns to use for KNN imputation.
         """
+        # Select only numeric columns
         numeric_columns = self.dataframe.select_dtypes(include=[np.number])
 
+        # Find numeric columns with null values
         numeric_columns_with_nulls = numeric_columns.loc[
             :, numeric_columns.isnull().any()
         ]
 
+        # Default to median strategy if none is provided
         if strategies is None:
             strategies = {col: 'median' for col in numeric_columns_with_nulls}
 
-        knn_columns = []
-
+        # Iterate through the provided strategies
         for column, strategy in strategies.items():
             if column in numeric_columns_with_nulls:
                 if strategy == 'mean':
+                    # Impute using the mean
                     self.dataframe[column].fillna(
                         self.dataframe[column].mean(), inplace=True
                     )
                 elif strategy == 'median':
+                    # Impute using the median
                     self.dataframe[column].fillna(
                         self.dataframe[column].median(), inplace=True
                     )
-                elif strategy == 'knn':
-                    knn_columns.append(column)
-
-    # Applies KNN in one batch instead of calling it for each column separately
-        if knn_columns:
-            self.knn_impute(knn_columns)
+                elif (strategy == 'knn' and knn_columns
+                        and column in knn_columns):
+                    # Apply KNN imputation for the specified column
+                    self.knn_impute(column, knn_columns[column])
 
     def apply_yeo_johnson(self, column: str):
         """
@@ -686,11 +703,12 @@ class EDAExecutor:
         plotter.plot_qq(exclude_columns='UDI')
         print('\nVisualisation complete.')
 
-    def run_imputation_and_null_visualisation(self, data):
+    def run_imputation_and_null_visualisation(self, data, knn_columns=None):
         """Handle null imputation and visualisation
         of null count comparison."""
         df_transform = DataFrameTransform(data)
         df_info = DataFrameInfo(data)
+        plotter = Plotter(data)
 
         # Specify imputation strategy
         imputation_strategy = {
@@ -699,14 +717,22 @@ class EDAExecutor:
             'Tool wear [min]': 'median'
         }
 
+        # Define the columns for KNN imputation (Process Temp uses Air Temp)
+        knn_cols = {
+            'Process temperature [K]': ['Air temperature [K]']
+        }
+
         # Null count before and after imputation
         initial_null_count = df_info.count_null_values()
-        df_transform.impute_missing_values(strategies=imputation_strategy)
+
+        # Pass the strategy and KNN columns to impute_missing_values
+        df_transform.impute_missing_values(strategies=imputation_strategy,
+                                           knn_columns=knn_cols)
+
         post_impute_null_count = df_info.count_null_values()
         print("\nPost impute null value counts:\n", post_impute_null_count)
 
         # Visualise null count comparison
-        plotter = Plotter(data)
         plotter.plot_null_comparison(initial_null_count,
                                      post_impute_null_count)
 
