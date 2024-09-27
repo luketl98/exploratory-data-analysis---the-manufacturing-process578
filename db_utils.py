@@ -284,10 +284,24 @@ class DataFrameInfo:
         """
         self.dataframe = dataframe
 
-    def describe_columns(self) -> pd.DataFrame:
-        """Describe all columns in the DataFrame to check their data types."""
+    def describe_columns(self, include_columns=None) -> pd.DataFrame:
+        """
+        Describe selected columns in the DataFrame to check their data types.
+
+        Parameters:
+            include_columns (list): A list of columns to include in the
+                                    description.
+                                    If None, all columns are included.
+
+        Returns:
+            pd.DataFrame: A DataFrame with the description of selected columns.
+        """
+        # Include all columns if none specified
+        if include_columns is None:
+            include_columns = self.dataframe.columns
+
         with pd.option_context('display.max_columns', None):
-            return self.dataframe.describe(include='all')
+            return self.dataframe[include_columns].describe(include='all')
 
     def extract_stats(self, exclude_columns=None) -> pd.DataFrame:
         """
@@ -627,6 +641,8 @@ class EDAExecutor:
         for col in ['Machine failure', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']:
             transformer.convert_to_boolean(col)
 
+        print('\nReformatting of data complete..')
+
         return data  # Return the transformed data
 
     def explore_stats(self, data):
@@ -647,6 +663,8 @@ class EDAExecutor:
             exclude_columns=count_distinct_exclude))
         df_info.print_shape()
         print("\nNull Value Counts:\n", df_info.count_null_values())
+
+        print('\nexploration of stats complete..')
 
     def visualise_data(self, data):
         """Generate visualisations for data."""
@@ -671,7 +689,7 @@ class EDAExecutor:
         plotter.plot_boxplots(exclude_columns='UDI')
         plotter.plot_skewness(exclude_columns='UDI')
         plotter.plot_qq(exclude_columns='UDI')
-        print('\nVisualisation complete.')
+        print('\nVisualisation complete..')
 
     def run_imputation_and_null_visualisation(self, data, knn_columns=None):
         # TODO: keep knn_columns param?
@@ -700,12 +718,14 @@ class EDAExecutor:
         df_transform.impute_missing_values(strategies=imputation_strategy,
                                            knn_columns=knn_cols)
 
-        post_impute_null_count = df_info.count_null_values()
-        print("\nPost impute null value counts:\n", post_impute_null_count)
+        null_count_after_impute = df_info.count_null_values()
+        print("\nPost impute null value counts:\n", null_count_after_impute)
 
         # Visualise null count comparison
         plotter.plot_null_comparison(initial_null_count,
-                                     post_impute_null_count)
+                                     null_count_after_impute)
+
+        print('\nRun null imputation complete..')
 
     def handle_skewness_and_transformations(self, data):
         """Handle skewness detection and transformation of columns."""
@@ -725,6 +745,7 @@ class EDAExecutor:
             original=original_data,
             transformed=yeo_transformed_data
         )
+        print('\nRun_skewness_transformations complete..')
 
     def handle_outlier_detection(self, data):
         """Detect and handle outliers in the data."""
@@ -748,6 +769,23 @@ class EDAExecutor:
         ])
         plotter.plot_boxplots(exclude_columns='UDI')
 
+        print('Outlier detection complete..')
+
+    def further_analysis(self, data):
+        df_info = DataFrameInfo(data)
+
+        selected_columns = ['Air temperature [K]',
+                            'Process temperature [K]',
+                            'Rotational speed [rpm]',
+                            'Torque [Nm]',
+                            'Tool wear [min]'
+                            ]
+
+        columns_to_analyse = df_info.describe_columns(selected_columns)
+
+        print(columns_to_analyse)
+        print('\nFurther Analysis complete..')
+
 
 if __name__ == "__main__":
     # Flag control system:
@@ -755,24 +793,29 @@ if __name__ == "__main__":
     # Set a flag to True to include that step, or False to skip it.
 
     run_reformat = True  # Reformat data (e.g., column types, categories)
-    run_explore_stats = True  # Perform exploratory statistics
+    run_explore_stats = True  # Explore statistics
     run_visualisation = False  # Generate visualisations for data
     run_null_imputation = True  # Carry out null imputation & visualisation
-    run_skewness_transformations = False  # Preview & perform transformation
-    run_outlier_detection = True  # Detect and visualise outliers
+    run_skewness_transformations = True  # Preview & perform transformation
+    run_outlier_detection = False  # Detect and visualise outliers
+    run_drop_columns = False  # Drop columns after analysis (if applicable)
     run_save_data = True  # Save transformed data
+    run_further_analysis = True  # Carry out more in-depth analysis
 
     # Load database credentials and connect
     credentials = load_db_credentials('credentials.yaml')
     db_connector = RDSDatabaseConnector(credentials)
 
-    # Create an instance of EDAExecutor
+    # Create an instance of EDAExecutor & df transform
     eda_executor = EDAExecutor(db_connector)
 
     # Fetch and save data
     data = eda_executor.fetch_and_save_data(
         query="SELECT * FROM failure_data;"
     )
+
+    # Create an instance of df transform
+    df_transform = DataFrameTransform(data)
 
     if not data.empty:
         if run_reformat:
@@ -782,35 +825,43 @@ if __name__ == "__main__":
         if run_explore_stats:
             # Perform initial exploration of data
             eda_executor.explore_stats(data)
-            input("\nPress Enter to continue to visualisation...")
+            input("\nPress Enter to continue...")
 
         if run_visualisation:
             # Perform visualisation of data
             eda_executor.visualise_data(data)
-            input("\nPress Enter to continue to null handling...")
+            input("\nPress Enter to continue...")
 
         if run_null_imputation:
             # Perform null imputation/removal and visualise the result
             eda_executor.run_imputation_and_null_visualisation(data)
-            input("\nPress Enter to continue to skewness & transformations...")
+            input("\nPress Enter to continue...")
 
         if run_skewness_transformations:
             # Skewness and transformations
             eda_executor.handle_skewness_and_transformations(data)
-            input("\nPress Enter to continue to outlier handling...")
+            input("\nPress Enter to continue...")
 
         if run_outlier_detection:
             # Outlier detection - Currently does not handle outliers
             eda_executor.handle_outlier_detection(data)
+            input("\nPress Enter to continue...")
+
+        if run_drop_columns:
+            # Drop columns after analysis (if applicable)
+            columns_to_drop = ['Air temperature [K]', 'Rotational speed [rpm]']
+            df_transform.drop_columns(columns_to_drop)
+            input("\nPress Enter to continue...")
 
         if run_save_data:
             # Save the transformed data
-            df_transform = DataFrameTransform(data)
             df_transform.save_transformed_data('transformed_failure_data.csv')
+            input("\nPress Enter to continue...")
 
-        # Drop columns after analysis (if applicable)
-        columns_to_drop = ['Air temperature [K]', 'Rotational speed [rpm]']
-        df_transform.drop_columns(columns_to_drop)
+        if run_further_analysis:
+            # Carry out more in-depth analysis
+            eda_executor.further_analysis(data)
+            input("\nPress Enter to continue...")
 
     else:
         print("\nNo data was fetched from the database.")
