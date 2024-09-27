@@ -10,6 +10,23 @@ from statsmodels.graphics.gofplots import qqplot
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
+"""
+TODO:
+1. Ensure plots are generated well, the correct size and legible.
+2. Add handling for new data:
+    - Follow the process through as if starting from scratch, starting
+      by exploring stats & visualising the data and doing nothing else.
+    - Essentially, you would be adding an on/off switch for each
+      method (stage of EDA) in the EDAExecutor class.
+    - So, you the file will only run up to the stage of EDA you are
+      currently at. To continue, you would have to 'switch on' the next
+      method (stage of EDA) in the EDAExecutor class.
+    - ^ Or otherwise clarify with the file that you are ready to progress
+      to the next stage of EDA (switch on the next method)
+3. Add 'Yeo-Johnson transform done' print statement, or allow user to choose
+   which transformation method to use, following preview.
+"""
+
 
 # Function to load database credentials from a YAML file
 def load_db_credentials(file_path: str = 'credentials.yaml') -> dict:
@@ -104,22 +121,11 @@ class DataTransform:
 
 class Plotter:
     """Class to visualise insights from the data."""
-
+# TODO: Can this method be refactored at all? any redundant methods or code
     def __init__(self, dataframe):
         self.dataframe = dataframe
 
     # --- Utility Methods ---
-
-    def _create_plot(self, title, xlabel=None, ylabel=None, figsize=(8, 6)):
-        """Helper method to standardise plot creation."""
-        plt.figure(figsize=figsize)
-        plt.title(title)
-        if xlabel:
-            plt.xlabel(xlabel)
-        if ylabel:
-            plt.ylabel(ylabel)
-        plt.tight_layout()
-        plt.show()
 
     def _create_subplots(self, num_plots, cols=3, subplot_size=(5, 5)):
         """Helper method to handle subplot creation."""
@@ -128,13 +134,6 @@ class Plotter:
         return rows, cols
 
     # --- Plot Methods ---
-
-    def scatter_plot(self, x_column, y_column):
-        """Scatter Plot: To identify outliers."""
-        self._create_plot(
-            f'Scatter Plot: {x_column} vs {y_column}', x_column, y_column
-        )
-        plt.scatter(self.dataframe[x_column], self.dataframe[y_column])
 
     def scatter_multiple_plots(self, column_pairs):
         """Create scatter plots for multiple column pairs."""
@@ -183,9 +182,15 @@ class Plotter:
     def correlation_heatmap(self):
         """Generate a heatmap of correlations for numerical columns."""
         numeric_cols = self.dataframe.select_dtypes(include=[np.number])
+
+        plt.figure(figsize=(10, 8))  # Adjust the figure size
         sns.heatmap(numeric_cols.corr(), annot=True,
-                    cmap='coolwarm', fmt='.2f')
+                    cmap='coolwarm', fmt='.2f', cbar_kws={'shrink': .8})
+        # Rotate x-axis & y-axis labels for readability
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
         plt.title('Correlation Heatmap')
+        plt.tight_layout()  # Adjust layout to prevent overlap
         plt.show()
 
     def missing_data_matrix(self):
@@ -196,6 +201,7 @@ class Plotter:
         plt.show()
 
     def plot_boxplots(self, exclude_columns=None):
+        # TODO: Plot is too large for screen
         """Generate boxplots for all numeric columns in one figure."""
         numeric_columns = filter_columns(self.dataframe, np.number,
                                          exclude_columns)
@@ -652,12 +658,11 @@ class EDAExecutor:
             ('Tool wear [min]', 'Process temperature [K]'),
             ('Tool wear [min]', 'Machine failure')
         ]
-        exclude_from_bar_plot = ['Product ID']
 
         # Call plots
         plotter.scatter_multiple_plots(scatter_plot_column_pairs)
         plotter.plot_histograms(exclude_columns='UDI')
-        plotter.plot_bar_plots(exclude_columns=exclude_from_bar_plot)
+        plotter.plot_bar_plots(exclude_columns='Product ID')
         plotter.correlation_heatmap()
         plotter.missing_data_matrix()
         plotter.plot_boxplots(exclude_columns='UDI')
@@ -666,6 +671,7 @@ class EDAExecutor:
         print('\nVisualisation complete.')
 
     def run_imputation_and_null_visualisation(self, data, knn_columns=None):
+        # TODO: keep knn_columns param?
         """Handle null imputation and visualisation
         of null count comparison."""
         df_transform = DataFrameTransform(data)
@@ -779,9 +785,16 @@ if __name__ == "__main__":
         df_transform = DataFrameTransform(data)
         df_transform.save_transformed_data('transformed_failure_data.csv')
 
-        # Drop columns after analysis
-        columns_to_drop = ['Air temperature [K]']  # <-- High collinearity
+        # Drop columns after analysis (due to high collinearity)
+        columns_to_drop = ['Air temperature [K]', 'Rotational speed [rpm]']
         df_transform.drop_columns(columns_to_drop)
+
+        # Review visualisations following data cleaning & transformations
+        plotter = Plotter(data)
+        plotter.correlation_heatmap()
+        plotter.missing_data_matrix()
+        plotter.plot_qq(exclude_columns='UDI')
+        plotter.plot_boxplots(exclude_columns='UDI')
 
     else:
         print("\nNo data was fetched from the database.")
