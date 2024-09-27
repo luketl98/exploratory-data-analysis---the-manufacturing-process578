@@ -81,10 +81,6 @@ class RDSDatabaseConnector:
             print(f"An unexpected error occurred: {e}")
             return pd.DataFrame()  # Return empty df for other exceptions
 
-    def save_data_to_csv(self, data_frame: pd.DataFrame, filename: str):
-        """Wrapper for saving data in RDSDatabaseConnector."""
-        save_data_to_csv(data_frame, filename)  # TODO: Remove this method?
-
     def close_connection(self):
         # Closes the database connection
         self.engine.dispose()
@@ -343,28 +339,16 @@ class DataFrameInfo:
         """
         print(f"\nDataFrame shape: {self.dataframe.shape}")
 
-    def count_null_values(self, exclude_columns=None) -> pd.DataFrame:
+    def count_null_values(self) -> pd.DataFrame:
         """
-        Generate a count and percentage of NULL values in each column,
-        excluding specified columns.
-
-        Parameters:
-            exclude_columns (list): A list of columns to exclude from
-            the null count.
+        Generate a count and percentage of NULL values in each column.
 
         Returns:
             pd.DataFrame: A DataFrame showing the count and
             percentage of NULL values for each column.
         """
-        if exclude_columns is None:
-            exclude_columns = []
-            # TODO: need to be able to exclude columns here?
-
-        df_filtered = self.dataframe.drop(columns=exclude_columns,
-                                          errors='ignore')
-
-        null_count = df_filtered.isnull().sum()
-        null_percentage = (null_count / len(df_filtered)) * 100
+        null_count = self.dataframe.isnull().sum()
+        null_percentage = (null_count / len(self.dataframe)) * 100
 
         null_info = pd.DataFrame({
             'null_count': null_count,
@@ -435,25 +419,6 @@ class DataFrameTransform:
 
     def __init__(self, dataframe: pd.DataFrame):
         self.dataframe = dataframe
-
-    def drop_columns_with_nulls(self, threshold: float = 0.5):
-        # TODO: use drop_columns method here
-        """
-        Drop columns where the percentage of missing values
-        exceeds the given threshold.
-
-        Parameters:
-            threshold (float): The maximum percentage of null values
-            allowed (default is 50%) - To adjust: Change threshold.
-        """
-        # Calculate the percentage of null values in each column
-        null_percentage = self.dataframe.isnull().mean()
-
-        # Drop columns exceeding the threshold
-        columns_to_drop = null_percentage[null_percentage > threshold].index
-        self.dataframe.drop(columns=columns_to_drop, inplace=True)
-
-        return columns_to_drop
 
     def knn_impute(self, target_column, correlated_columns, n_neighbors=5):
         """
@@ -628,7 +593,7 @@ class EDAExecutor:
         data = self.db_connector.fetch_data(query)
         if not data.empty:
             csv_filename = 'failure_data.csv'
-            self.db_connector.save_data_to_csv(data, csv_filename)
+            save_data_to_csv(data, csv_filename)
             print("\nData successfully retrieved from database",
                   f"and saved to '{csv_filename}'.")
         return data
@@ -663,8 +628,6 @@ class EDAExecutor:
         # List which columns to exclude
         extract_stats_exclude = ['UDI']
         count_distinct_exclude = ['Product ID']
-        count_null_exclude = ['UDI', 'Product ID']
-        # TODO: ^ Should data be excluded from null count?
 
         # Print statistics
         print("\nColumn Descriptions:\n", df_info.describe_columns())
@@ -674,8 +637,7 @@ class EDAExecutor:
         print("\nDistinct Value Counts:\n", df_info.count_distinct_values(
             exclude_columns=count_distinct_exclude))
         df_info.print_shape()
-        print("\nNull Value Counts:\n", df_info.count_null_values(
-            exclude_columns=count_null_exclude))
+        print("\nNull Value Counts:\n", df_info.count_null_values())
 
     def visualise_data(self, data):
         """Generate visualisations for data."""
