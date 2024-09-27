@@ -25,6 +25,7 @@ TODO:
       to the next stage of EDA (switch on the next method)
 3. Add 'Yeo-Johnson transform done' print statement, or allow user to choose
    which transformation method to use, following preview.
+4. Add full comments and Doc strings to all methods
 """
 
 
@@ -136,6 +137,7 @@ class Plotter:
     # --- Plot Methods ---
 
     def scatter_multiple_plots(self, column_pairs):
+        # TODO: e number being printed on some plots
         """Create scatter plots for multiple column pairs."""
         num_plots = len(column_pairs)
         rows, cols = self._create_subplots(num_plots)
@@ -451,7 +453,7 @@ class DataFrameTransform:
         # (last column is target)
         self.dataframe[target_column] = imputed_data[:, -1]
 
-        print(f"KNN imputation applied to {target_column}"
+        print(f"\nKNN imputation applied to {target_column}"
               f"using {correlated_columns}")
 
     def impute_missing_values(self, strategies=None, knn_columns=None):
@@ -555,6 +557,7 @@ class DataFrameTransform:
         plt.show()
 
     def save_transformed_data(self, filename: str = 'transformed_data.csv'):
+        # TODO: Is this method necessary?
         """Save the transformed DataFrame to a new CSV file."""
         save_data_to_csv(self.dataframe, filename)
 
@@ -726,6 +729,7 @@ class EDAExecutor:
     def handle_outlier_detection(self, data):
         """Detect and handle outliers in the data."""
         df_info = DataFrameInfo(data)
+        # TODO: Only detects outliers in 'Rotational speed [rpm]
         print("\nDetecting Z-score Outliers:")
         zscore_outliers = df_info.detect_outliers_zscore(
             'Rotational speed [rpm]')
@@ -746,6 +750,18 @@ class EDAExecutor:
 
 
 if __name__ == "__main__":
+    # Flag control system:
+    # Each flag corresponds to a different step in the EDA process.
+    # Set a flag to True to include that step, or False to skip it.
+
+    run_reformat = True  # Reformat data (e.g., column types, categories)
+    run_explore_stats = True  # Perform exploratory statistics
+    run_visualisation = False  # Generate visualisations for data
+    run_null_imputation = True  # Carry out null imputation & visualisation
+    run_skewness_transformations = False  # Preview & perform transformation
+    run_outlier_detection = True  # Detect and visualise outliers
+    run_save_data = True  # Save transformed data
+
     # Load database credentials and connect
     credentials = load_db_credentials('credentials.yaml')
     db_connector = RDSDatabaseConnector(credentials)
@@ -756,45 +772,45 @@ if __name__ == "__main__":
     # Fetch and save data
     data = eda_executor.fetch_and_save_data(
         query="SELECT * FROM failure_data;"
-        )
+    )
 
     if not data.empty:
-        # Reformat data as needed (ensure correct formats, types, etc.)
-        data = eda_executor.reformat_data(data)
+        if run_reformat:
+            # Reformat data as needed (ensure correct formats, types, etc.)
+            data = eda_executor.reformat_data(data)
 
-        # Perform initial exploration of data
-        eda_executor.explore_stats(data)
-        input("\nPress Enter to continue to visualisation...")
+        if run_explore_stats:
+            # Perform initial exploration of data
+            eda_executor.explore_stats(data)
+            input("\nPress Enter to continue to visualisation...")
 
-        # Perform visualisation of data
-        eda_executor.visualise_data(data)
-        input("\nPress Enter to continue to null handling...")
+        if run_visualisation:
+            # Perform visualisation of data
+            eda_executor.visualise_data(data)
+            input("\nPress Enter to continue to null handling...")
 
-        # Perform null imputation/removal and visualise the result
-        eda_executor.run_imputation_and_null_visualisation(data)
-        input("\nPress Enter to continue to skewness & transformations...")
+        if run_null_imputation:
+            # Perform null imputation/removal and visualise the result
+            eda_executor.run_imputation_and_null_visualisation(data)
+            input("\nPress Enter to continue to skewness & transformations...")
 
-        # Skewness and transformations
-        eda_executor.handle_skewness_and_transformations(data)
-        input("\nPress Enter to continue to outlier handling...")
+        if run_skewness_transformations:
+            # Skewness and transformations
+            eda_executor.handle_skewness_and_transformations(data)
+            input("\nPress Enter to continue to outlier handling...")
 
-        # Outlier detection
-        eda_executor.handle_outlier_detection(data)
+        if run_outlier_detection:
+            # Outlier detection - Currently does not handle outliers
+            eda_executor.handle_outlier_detection(data)
 
-        # Save the transformed data
-        df_transform = DataFrameTransform(data)
-        df_transform.save_transformed_data('transformed_failure_data.csv')
+        if run_save_data:
+            # Save the transformed data
+            df_transform = DataFrameTransform(data)
+            df_transform.save_transformed_data('transformed_failure_data.csv')
 
-        # Drop columns after analysis (due to high collinearity)
+        # Drop columns after analysis (if applicable)
         columns_to_drop = ['Air temperature [K]', 'Rotational speed [rpm]']
         df_transform.drop_columns(columns_to_drop)
-
-        # Review visualisations following data cleaning & transformations
-        plotter = Plotter(data)
-        plotter.correlation_heatmap()
-        plotter.missing_data_matrix()
-        plotter.plot_qq(exclude_columns='UDI')
-        plotter.plot_boxplots(exclude_columns='UDI')
 
     else:
         print("\nNo data was fetched from the database.")
