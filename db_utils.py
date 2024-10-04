@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import missingno as msno
 import numpy as np
 import pandas as pd
+import plotly.express as px
 import seaborn as sns
 import yaml
 from scipy import stats
@@ -268,6 +269,177 @@ class Plotter:
         plt.suptitle('Q-Q plots for numeric columns')
         plt.show()
 
+        # -- Further Analysis --
+
+    def plot_tool_wear_distribution(self, bins=20):
+        """Visualise the distribution of tool wear values with improvements."""
+        plt.figure(figsize=(10, 6))
+
+        # Create bins to group similar tool wear values together
+        self.dataframe['Tool wear [min]'].plot(
+            kind='hist', bins=30, edgecolor='black')
+
+        plt.title('Tool Wear Distribution')
+        plt.xlabel('Tool wear [min]')
+        plt.ylabel('Number of Tools')
+
+        plt.tight_layout()
+        plt.show()
+
+    def plot_tool_wear_by_quality(self):
+        """Visualise tool wear distribution by product quality."""
+        plt.figure(figsize=(10, 6))
+
+        # Define consistent bins for all product types
+        bins = np.histogram_bin_edges(self.dataframe['Tool wear [min]'],
+                                      bins=30)
+
+        # Create a histogram for each product type
+        for product_type, color in zip(['L', 'M', 'H'],
+                                       ['blue', 'orange', 'green']):
+            subset = self.dataframe[self.dataframe['Type'] == product_type]
+            plt.hist(subset['Tool wear [min]'], bins=bins, alpha=0.5,
+                     label=f'Type {product_type}', edgecolor='black')
+
+        plt.title('Tool Wear Distribution by Product Quality')
+        plt.xlabel('Tool wear [min]')
+        plt.ylabel('Number of Tools')
+        # Set x-axis ticks every 10 minutes
+        plt.xticks(np.arange(0, 260, 10))  # Adjust range and step as needed
+        # Set y-axis ticks every 50
+        plt.yticks(np.arange(0, 500, 50))
+        plt.legend(title='Product Quality Type')
+        plt.tight_layout()
+        plt.show()
+
+    def calculate_failure_rate(self):
+        """
+        Calculate and visualise the total number
+        and percentage of failures.
+        """
+        total_processes = len(self.dataframe)
+        total_failures = self.dataframe['Machine failure'].sum()
+
+        failure_percentage = (total_failures / total_processes) * 100
+
+        print(f"\nTotal Processes: {total_processes}")
+        print(f"Total Failures: {total_failures}")
+        print(f"Failure Percentage: {failure_percentage:.2f}%")
+
+        # Visualise failure rate
+        labels = ['Failures', 'Non-failures']
+        sizes = [total_failures, total_processes - total_failures]
+        plt.pie(sizes, labels=labels, autopct='%1.1f%%',
+                startangle=90, colors=['red', 'green'])
+        plt.title('Failure Rate in the Manufacturing Process')
+        plt.tight_layout()
+        plt.show()
+
+    def failures_by_product_quality(self):
+        """Analyse failures based on product quality types & visualise them."""
+        # Group by product quality and count failures
+        failures_by_quality = self.dataframe.groupby(
+            'Type')['Machine failure'].sum()
+        total_by_quality = self.dataframe.groupby('Type').size()
+
+        failure_percent_by_quality = (
+            failures_by_quality / total_by_quality) * 100
+
+        print("\nFailures by Product Quality:\n", failures_by_quality)
+        print("\nFailure Percentage by Product Quality:\n",
+              failure_percent_by_quality)
+
+        # Visualise failures by product quality
+        plt.figure(figsize=(8, 6))
+        bars = plt.bar(failures_by_quality.index, failures_by_quality.values,
+                       color=['blue', 'orange', 'green'], edgecolor='black')
+
+        # Annotate bars with the percentage of total failures
+        for bar, percent in zip(bars, failure_percent_by_quality):
+            yval = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width() / 2, yval,
+                     f'{percent:.1f}%', ha='center', va='bottom')
+
+        plt.title('Failure rate by Product Quality (Type)')
+        plt.xlabel('Product Quality (Type)')
+        plt.ylabel('Number of Failures')
+
+        # Add the text legend in a box with opacity
+        plt.text(0.95, 0.95, '% = failure rate in each quality type',
+                 ha='right', va='top', transform=plt.gca().transAxes,
+                 bbox=dict(facecolor='white', alpha=0.6))
+
+        plt.tight_layout()
+        plt.show()
+
+    def leading_causes_of_failure(self):
+        """Determine and visualise the leading causes of failure."""
+        failure_columns = ['TWF', 'HDF', 'PWF', 'OSF', 'RNF']
+
+        # Sum the failures for each failure type
+        cause_of_failure_counts = self.dataframe[failure_columns].sum()
+        total_failures = cause_of_failure_counts.sum()
+
+        print("\nLeading Causes of Failure:\n", cause_of_failure_counts)
+
+        # Calculate percentage of failures for each cause
+        failure_percent_by_cause = (
+            cause_of_failure_counts / total_failures) * 100
+
+        # Visualise the causes of failure
+        plt.figure(figsize=(8, 6))
+        bars = plt.bar(cause_of_failure_counts.index,
+                       cause_of_failure_counts.values,
+                       color='red', edgecolor='black')
+
+        # Annotate bars with the percentage of total failures
+        for bar, percent in zip(bars, failure_percent_by_cause):
+            yval = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width() / 2, yval,
+                     f'{percent:.1f}%', ha='center', va='bottom')
+
+        plt.title('Leading Causes of Failure')
+        plt.xlabel('Failure Type')
+        plt.ylabel('Number of Failures')
+        plt.tight_layout()
+        plt.show()
+
+    def failure_causes_by_product_quality(self):
+        """
+        Visualise leading causes of failure grouped by
+        product quality with percentages.
+        """
+
+        failure_columns = ['TWF', 'HDF', 'PWF', 'OSF', 'RNF']
+        failure_data = self.dataframe[self.dataframe['Machine failure'] == 1]
+
+        # Group and prepare data
+        failures_grouped = failure_data.groupby(
+            'Type')[failure_columns].sum().reset_index()
+        failures_melted = failures_grouped.melt(
+            id_vars='Type', var_name='Failure Type', value_name='Count'
+        )
+        # Calculate percentages
+        totals = failures_melted.groupby('Type')['Count'].transform('sum')
+        failures_melted['Percentage'] = (
+            failures_melted['Count'] / totals) * 100
+
+        # Create interactive plot
+        fig = px.bar(
+            failures_melted,
+            x='Type',
+            y='Count',
+            color='Failure Type',
+            title='Failures by Product Quality and Failure Type',
+            labels={'Type': 'Product Quality (Type)',
+                    'Count': 'Number of Failures'},
+            hover_data={'Percentage': ':.1f%'},
+        )
+        fig.update_layout(barmode='stack',
+                          xaxis_title='Product Quality (Type)',
+                          yaxis_title='Number of Failures')
+        fig.show()
+
 
 class DataFrameInfo:
     """
@@ -284,24 +456,30 @@ class DataFrameInfo:
         """
         self.dataframe = dataframe
 
-    def describe_columns(self, include_columns=None) -> pd.DataFrame:
+    def describe_columns(
+        self, include_columns=None, stats_to_return=None
+    ) -> pd.DataFrame:
         """
-        Describe selected columns in the DataFrame to check their data types.
+        Describe selected columns and return specified statistics.
 
         Parameters:
-            include_columns (list): A list of columns to include in the
-                                    description.
+            include_columns (list): Columns to include in the description.
                                     If None, all columns are included.
+            stats_to_return (list): Statistics to return (e.g., 'min', 'max').
+                                    If None, all statistics are returned.
 
         Returns:
-            pd.DataFrame: A DataFrame with the description of selected columns.
+            pd.DataFrame: Description of selected columns.
         """
-        # Include all columns if none specified
         if include_columns is None:
             include_columns = self.dataframe.columns
 
-        with pd.option_context('display.max_columns', None):
-            return self.dataframe[include_columns].describe(include='all')
+        description = self.dataframe[include_columns].describe(include='all')
+
+        if stats_to_return is not None:
+            description = description.loc[stats_to_return]
+
+        return description
 
     def extract_stats(self, exclude_columns=None) -> pd.DataFrame:
         """
@@ -772,19 +950,56 @@ class EDAExecutor:
         print('Outlier detection complete..')
 
     def further_analysis(self, data):
+        """
+        Analyse operating ranges for all data and by product quality type.
+
+        This method first displays the operating ranges for the selected
+        columns across all data. Then, it breaks down the data to analyse
+        the operating ranges for low (L), medium (M), and high (H)
+        quality products.
+        """
+
+        selected_columns = [
+            'Air temperature [K]', 'Process temperature [K]',
+            'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]'
+        ]
+
+        # Display overall operating ranges
+        print("\nOverall Operating Ranges:")
         df_info = DataFrameInfo(data)
+        overall_ranges = df_info.describe_columns(
+            include_columns=selected_columns,
+            stats_to_return=['min', '25%', '75%', 'max', 'mean']
+        )
+        print(overall_ranges)
 
-        selected_columns = ['Air temperature [K]',
-                            'Process temperature [K]',
-                            'Rotational speed [rpm]',
-                            'Torque [Nm]',
-                            'Tool wear [min]'
-                            ]
+        # Loop through each product quality type and display the stats
+        for product_type in ['L', 'M', 'H']:
+            print(f"\nOperating Ranges for Product Type: {product_type}")
 
-        columns_to_analyse = df_info.describe_columns(selected_columns)
+            # Filter data based on the product type
+            filtered_data = data[data['Type'] == product_type]
 
-        print(columns_to_analyse)
-        print('\nFurther Analysis complete..')
+            # Create a DataFrameInfo object for the filtered data
+            df_info_filtered = DataFrameInfo(filtered_data)
+
+            # Call the describe_columns method for each filtered dataset
+            type_specific_ranges = df_info_filtered.describe_columns(
+                include_columns=selected_columns,
+                stats_to_return=['min', '25%', '75%', 'max', 'mean']
+            )
+            print(type_specific_ranges)
+
+        plotter = Plotter(data)
+        # Plots for further analysis
+        plotter.plot_tool_wear_distribution()
+        plotter.plot_tool_wear_by_quality()
+        plotter.calculate_failure_rate()
+        plotter.failures_by_product_quality()
+        plotter.leading_causes_of_failure()
+        plotter.failure_causes_by_product_quality()
+
+        print('\nFurther analysis complete.')
 
 
 if __name__ == "__main__":
@@ -825,7 +1040,7 @@ if __name__ == "__main__":
         if run_explore_stats:
             # Perform initial exploration of data
             eda_executor.explore_stats(data)
-            input("\nPress Enter to continue...")
+            # input("\nPress Enter to continue...")
 
         if run_visualisation:
             # Perform visualisation of data
@@ -835,33 +1050,33 @@ if __name__ == "__main__":
         if run_null_imputation:
             # Perform null imputation/removal and visualise the result
             eda_executor.run_imputation_and_null_visualisation(data)
-            input("\nPress Enter to continue...")
+            # input("\nPress Enter to continue...")
 
         if run_skewness_transformations:
             # Skewness and transformations
             eda_executor.handle_skewness_and_transformations(data)
-            input("\nPress Enter to continue...")
+            # input("\nPress Enter to continue...")
 
         if run_outlier_detection:
             # Outlier detection - Currently does not handle outliers
             eda_executor.handle_outlier_detection(data)
-            input("\nPress Enter to continue...")
+            # input("\nPress Enter to continue...")
 
         if run_drop_columns:
             # Drop columns after analysis (if applicable)
             columns_to_drop = ['Air temperature [K]', 'Rotational speed [rpm]']
             df_transform.drop_columns(columns_to_drop)
-            input("\nPress Enter to continue...")
+            # input("\nPress Enter to continue...")
 
         if run_save_data:
             # Save the transformed data
             df_transform.save_transformed_data('transformed_failure_data.csv')
-            input("\nPress Enter to continue...")
+            # input("\nPress Enter to continue...")
 
         if run_further_analysis:
             # Carry out more in-depth analysis
             eda_executor.further_analysis(data)
-            input("\nPress Enter to continue...")
+            # input("\nPress Enter to continue...")
 
     else:
         print("\nNo data was fetched from the database.")
