@@ -1077,6 +1077,7 @@ if __name__ == "__main__":
             # Carry out more in-depth analysis
             eda_executor.further_analysis(data)
             # input("\nPress Enter to continue...")
+            # Test github push
 
     else:
         print("\nNo data was fetched from the database.")
