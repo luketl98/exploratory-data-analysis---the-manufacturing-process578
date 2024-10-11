@@ -129,10 +129,15 @@ class Plotter:
 
     # --- Utility Methods ---
 
-    def _create_subplots(self, num_plots, cols=3, subplot_size=(5, 5)):
-        """Helper method to handle subplot creation."""
+    def _create_subplots(self, num_plots, cols=3, subplot_size=(4, 4)):
+        """Helper method to handle subplot creation with dynamic columns."""
+        # Adjust cols to be the smaller value between the specified columns and num_plots
+        cols = min(cols, num_plots)
+        # Calculate the number of rows needed based on the number of columns
         rows = (num_plots // cols) + (num_plots % cols > 0)
+        # Set the figure size based on the number of rows and columns
         plt.figure(figsize=(subplot_size[0] * cols, subplot_size[1] * rows))
+
         return rows, cols
 
     # --- Plot Methods ---
@@ -227,7 +232,7 @@ class Plotter:
         num_cols = len(columns)
 
         # Create subplots based on number of columns
-        rows, cols = self._create_subplots(num_cols, cols=3, subplot_size=(5, 6))
+        rows, cols = self._create_subplots(num_cols, cols=3, subplot_size=(4, 4))
 
         # Plot each column
         for i, col in enumerate(columns, 1):
@@ -497,6 +502,50 @@ class Plotter:
                           yaxis_title='Number of Failures')
         fig.show()
 
+    def failure_rate_analysis(self, selected_column, target_column):
+        """
+        Line plot:
+        Divide the selected column values into bins and calculate the failure rate
+        within each bin. Visualise the failure rate against the selected column
+        to identify a recommended maximum value.
+
+        Parameters:
+            selected_column (str): The column to divide into bins (e.g., 'Torque [Nm]').
+            target_column (str): The target column indicating failures (e.g., 'HDF').
+        """
+
+        # Creating bins with a width of 10 units to group similar values together
+        self.dataframe['Selected Bin'] = pd.cut(
+            self.dataframe[selected_column],
+            # Create bins of from 0 to max value + 10, end number = bin width
+            bins=range(0, int(self.dataframe[selected_column].max()) + 2, 2),
+            right=False  # Ensures the bins are left-closed, right-open
+        )
+
+        # Calculating the total count and failure count for each bin
+        bin_failure_counts = self.dataframe.groupby('Selected Bin')[target_column].sum()
+        bin_total_counts = self.dataframe.groupby('Selected Bin').size()
+        failure_rate = (bin_failure_counts / bin_total_counts) * 100  # Calculate failure rate in percentage
+
+        # Plotting failure rate for each bin to identify trends
+        plt.figure(figsize=(10, 6))
+        plt.plot(
+            failure_rate.index.astype(str),  # Convert bin index to string for better x-axis labels
+            failure_rate.values,  # Failure rate values
+            marker='o',  # Use circle markers for data points
+            linestyle='-',  # Connect data points with lines
+            color='red'  # Set line color to red
+        )
+        plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels
+        plt.title(f'{target_column} Failure Rate vs {selected_column} Bins')  # Set plot title
+        plt.xlabel(f'{selected_column} Bins')  # Set x-axis label
+        plt.ylabel(f'{target_column} Failure Rate (%)')  # Set y-axis label
+        plt.tight_layout()  # Adjust layout to prevent overlap
+        plt.show()
+
+        # Removing the 'Selected Bin' column after analysis to avoid affecting other calculations
+        self.dataframe.drop(columns=['Selected Bin'], inplace=True)
+
 
 class DataFrameInfo:
     """
@@ -671,9 +720,8 @@ class DataFrameTransform:
         knn_imputer = KNNImputer(n_neighbors=n_neighbors)
         imputed_data = knn_imputer.fit_transform(knn_data)
 
-        # Replace the target column with the imputed values
-        # (last column is target)
-        self.dataframe[target_column] = imputed_data[:, -1]
+        # Replace target column with imputed values & round to 1 decimal point
+        self.dataframe[target_column] = np.round(imputed_data[:, -1], 1)
 
         print(f"\nKNN imputation applied to {target_column}"
               f"using {correlated_columns}")
@@ -709,12 +757,12 @@ class DataFrameTransform:
                 if strategy == 'mean':
                     # Impute using the mean
                     self.dataframe[column].fillna(
-                        self.dataframe[column].mean(), inplace=True
+                        round(self.dataframe[column].mean(), 1), inplace=True
                     )
                 elif strategy == 'median':
                     # Impute using the median
                     self.dataframe[column].fillna(
-                        self.dataframe[column].median(), inplace=True
+                        round(self.dataframe[column].median(), 1), inplace=True
                     )
                 elif (strategy == 'knn' and knn_columns
                         and column in knn_columns):
@@ -1042,6 +1090,9 @@ class EDAExecutor:
         plotter.failures_by_product_quality()
         plotter.leading_causes_of_failure()
         plotter.failure_causes_by_product_quality()
+        plotter.failure_rate_analysis(
+            selected_column='Torque [Nm]',
+            target_column='HDF')
 
     # Task 3: Deeper Understanding of Failures
     def analyse_failure_risk_factors(self, data):
@@ -1059,25 +1110,15 @@ class EDAExecutor:
         plotter = Plotter(data)
 
         # For failure risk factors with failure comparison
-        # TODO: Can these two plot_boxplots be merged?
-        plotter.plot_boxplots(
-            columns=['Torque [Nm]', 'Process temperature [K]',
-                     'Rotational speed [rpm]', 'Air temperature [K]',
-                     'Tool wear [min]'],
-            x_column='Machine failure')
+        # Boxplots of failure type vs setting value
+        fail_type = ['Machine failure', 'HDF', 'OSF']
+        columns_to_plot = ['Torque [Nm]', 'Process temperature [K]',
+                           'Rotational speed [rpm]', 'Air temperature [K]',
+                           'Tool wear [min]']
+        for fail_type in fail_type:
+            plotter.plot_boxplots(columns=columns_to_plot, x_column=fail_type)
 
-        plotter.plot_boxplots(
-            columns=['Torque [Nm]', 'Process temperature [K]',
-                     'Rotational speed [rpm]', 'Air temperature [K]',
-                     'Tool wear [min]'],
-            x_column='HDF')
-
-        plotter.plot_boxplots(
-            columns=['Torque [Nm]', 'Process temperature [K]',
-                     'Rotational speed [rpm]', 'Air temperature [K]',
-                     'Tool wear [min]'],
-            x_column='OSF')
-
+        # Generate correlation heatmap including failure types
         plotter.correlation_heatmap(include_booleans=True)
 
         column_pairs = [('Torque [Nm]', 'Process temperature [K]'),
@@ -1085,7 +1126,6 @@ class EDAExecutor:
                         ('Torque [Nm]', 'HDF'),
                         ('Process temperature [K]', 'HDF'),
                         ('Rotational speed [rpm]', 'PWF')]
-
         plotter.scatter_multiple_plots(column_pairs)
 
         selected_columns = [
@@ -1197,6 +1237,7 @@ if __name__ == "__main__":
         if run_save_data:
             # Save the transformed data
             df_transform.save_transformed_data('transformed_failure_data.csv')
+            save_data_to_csv(eda_executor.pre_transform_data, 'pre_transform_data.csv')
             # input("\nPress Enter to continue...")
 
         if run_further_analysis:
