@@ -137,11 +137,25 @@ class Plotter:
         # Calculate the number of rows needed based on the number of columns
         rows = (num_plots // cols) + (num_plots % cols > 0)
         # Set the figure size based on the number of rows and columns
-        plt.figure(figsize=(subplot_size[0] * cols, subplot_size[1] * rows))
-
+        fig, axes = plt.subplots(rows, cols, figsize=(subplot_size[0] * cols, subplot_size[1] * rows))
+    
+        # Flatten axes if there's more than one, else convert it to a list
+        if num_plots == 1:
+            axes = [axes]
+        else:
+            axes = axes.flatten()
+    
+        # Hide any extra axes
+        for ax in axes[num_plots:]:
+            ax.set_visible(False)
+    
+        # Return rows and cols to maintain compatibility with existing calls
+        self.fig = fig
+        self.axes = axes
         return rows, cols
 
-    def auto_bin_width(self, data, num_bins=36):
+        # TODO: Is there an auto_bin_width equivilant package or something?
+    def auto_bin_width(self, data, num_bins=25):
         """
         Calculate the bin width for a histogram using a custom approach with a specified number of bins,
         rounding to the nearest significant figure (order of magnitude).
@@ -155,40 +169,82 @@ class Plotter:
         """
         data = np.asarray(data)
         n = len(data)
-
+    
         if n < 2:
             raise ValueError("Data must contain at least two data points.")
-
+        
         # Use the specified number of bins
         data_range = np.max(data) - np.min(data)
 
         print(f"\nData range: {data_range}")
-
+    
         # Calculate bin width
         bin_width = data_range / num_bins
 
         print(f"Initial bin width: {bin_width}")
-
+    
         # Round the bin width to the nearest significant figure
         if bin_width == 0:
-            print("Bin width is zero; returning zero.")
-            return 0
+            raise ValueError("Bin width cannot be 0")
+
         # Determine the order of magnitude of the value
         order_of_magnitude = 10 ** (np.floor(np.log10(abs(bin_width))))
         # Round to the nearest significant figure
         rounded_bin_width = round(bin_width / order_of_magnitude) * order_of_magnitude
 
-        # If rounding results in zero, ensure we return a small but non-zero value
+        # If rounding results in zero, return a small but non-zero value
         if rounded_bin_width == 0:
             rounded_bin_width = bin_width
 
-        print(f"Rounded bin width: {rounded_bin_width}")
+        # Remove trailing .0 if the value is an integer
+        if rounded_bin_width.is_integer():
+            rounded_bin_width = int(rounded_bin_width)
 
+        print(f"Rounded bin width: {rounded_bin_width}")
+    
         return rounded_bin_width
 
-    # TODO: Is there an auto_bin_width equivilant package or something?
-
     # --- Plot Methods ---
+
+    def plot_line_chart(self, ax, x_values, y_values, title="Line Chart", group_columns=None, x_label=None, y_label=None):
+        """
+        Generic line plot method to visualise data, with optional support for grouping.
+
+        Parameters:
+            ax (matplotlib.axes._subplots.AxesSubplot): The axes on which to plot the line chart.
+            x_values (pd.Index or array-like): The values to plot on the x-axis.
+            y_values (pd.Series or dict): The values to plot on the y-axis. Can be a single series or a dictionary for multiple groups.
+            title (str, optional): Title for the plot. Default is "Line Chart".
+            group_columns (list, optional): List of group labels for plotting multiple lines.
+            x_label (str, optional): Label for the x-axis. Default is None, which uses the x_values label.
+            y_label (str, optional): Label for the y-axis. Default is None, which uses the y_values label.
+        """
+        if group_columns is not None:
+            # Plotting multiple lines for each group
+            for group in group_columns:
+                ax.plot(
+                    x_values,
+                    y_values[group],
+                    marker='o',
+                    linestyle='-',
+                    label=f'{group}'
+                )
+            ax.legend(title="legend")
+        else:
+            # Plotting a single line
+            ax.plot(
+                x_values,
+                y_values,
+                marker='o',
+                linestyle='-',
+                color='red'
+            )
+        ax.set_xticks(range(len(x_values)))
+        ax.set_xticklabels(x_values, rotation=45, ha='right')
+        ax.set_title(title)
+        ax.set_xlabel(x_label if x_label else str(x_values))
+        ax.set_ylabel(y_label if y_label else str(y_values))
+        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
     def scatter_multiple_plots(self, column_pairs):
         # TODO: e number being printed on some plots
@@ -572,57 +628,54 @@ class Plotter:
                           yaxis_title='Number of Failures')
         fig.show()
 
-    def failure_rate_analysis(self, selected_column, target_column):
+    def failure_rate_analysis(self, dataframe, selected_column, target_column, group_column=None):
         """
-        Line plot:
-        Divide the selected column values into bins and calculate the failure
-        rate within each bin. Visualise the failure rate against the
-        selected column to identify a recommended maximum value.
-
+        Create subplots of line charts using selected columns and target columns.
+    
         Parameters:
-            selected_column (str): The column to divide into bins
-            target_column (str): The target column indicating failures
+            dataframe (pd.DataFrame): The DataFrame containing the data.
+            selected_column (list): List of machine setting columns (e.g., ['Torque [Nm]', 'Rotational speed [rpm]']).
+            target_column (list): List of failure type columns (e.g., ['Machine failure', 'HDF']).
+            group_column (str, optional): The column to group by (e.g., 'Type').
         """
-
-        # Creating bins with a chosen width
-        bin_width = 2
-        self.dataframe['Selected Bin'] = pd.cut(
-            self.dataframe[selected_column],
-            # Create bins of from 0 to max value + bin width
-            bins=range(0,
-                       int(self.dataframe[selected_column].max()) + bin_width,
-                       bin_width),
-            right=False  # Ensures the bins are left-closed, right-open
-        )
-
-        # Calculating the total count and failure count for each bin
-        bin_failure_counts = self.dataframe.groupby(
-            'Selected Bin')[target_column].sum()
-        bin_total_counts = self.dataframe.groupby(
-            'Selected Bin').size()
-        # Calculate failure rate in percentage
-        failure_rate = (bin_failure_counts / bin_total_counts) * 100
-
-        # Plotting failure rate for each bin to identify trends
-        plt.figure(figsize=(10, 6))
-        plt.plot(
-            # Convert bin index to string for better x-axis labels
-            failure_rate.index.astype(str),
-            failure_rate.values,  # Failure rate values
-            marker='o',  # Use circle markers for data points
-            linestyle='-',  # Connect data points with lines
-            color='red'  # Set line color to red
-        )
-        plt.suptitle('Failure rate analysis')
-        plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels
-        plt.title(f'{target_column} Rate vs {selected_column} Bins')
-        plt.xlabel(f'{selected_column} Bins')  # Set x-axis label
-        plt.ylabel(f'{target_column} Failure Rate (%)')  # Set y-axis label
-        plt.tight_layout()  # Adjust layout to prevent overlap
+        num_plots = len(selected_column)
+        rows, cols = self._create_subplots(num_plots=num_plots, cols=3, subplot_size=(6, 4))
+        axes = self.axes
+    
+        for idx, setting in enumerate(selected_column):
+            # Calculate bin width using the auto_bin_width method
+            bin_width = self.auto_bin_width(dataframe[setting])
+    
+            # Creating bins with the calculated width starting from the minimum value of the data
+            min_value = dataframe[setting].min()
+            dataframe['Selected Bin'] = pd.cut(
+                dataframe[setting],
+                bins=np.arange(min_value, dataframe[setting].max() + bin_width, bin_width).astype(int) if isinstance(bin_width, int) else np.arange(min_value, dataframe[setting].max() + bin_width, bin_width),
+                right=False  # Ensures the bins are left-closed, right-open
+            )
+    
+            # Group by 'Selected Bin' and 'target_column' and calculate failure rate for each type
+            grouped = dataframe.groupby(['Selected Bin'])[target_column].agg(['sum', 'size'])
+            failure_rates = {}
+            for failure in target_column:
+                failure_rates[failure] = (grouped[(failure, 'sum')] / grouped[(failure, 'size')]) * 100
+    
+            # Plotting the failure rate for each failure type
+            self.plot_line_chart(
+                ax=axes[idx],
+                x_values=failure_rates[target_column[0]].index.astype(str),
+                y_values=failure_rates,
+                title=f'Failure Rate Analysis for {setting}',
+                group_columns=target_column,
+                x_label=f'{setting} Bins',
+                y_label='Failure Rate (%)'
+            )
+    
+            # Remove 'Selected Bin' column after analysis
+            dataframe.drop(columns=['Selected Bin'], inplace=True)
+    
+        plt.tight_layout()
         plt.show()
-
-        # Remove 'Selected Bin' column after analysis
-        self.dataframe.drop(columns=['Selected Bin'], inplace=True)
 
     def plot_violin_plots(self, dataframe, columns, x_column):
         """
@@ -1193,21 +1246,23 @@ class EDAExecutor:
         """Analyse failures by product quality and failure type."""
         plotter = Plotter(data)
 
-        columns_to_plot = ['Torque [Nm]', 'Process temperature [K]',
-                           'Rotational speed [rpm]', 'Air temperature [K]',
-                           'Tool wear [min]']
+        machine_settings = ['Torque [Nm]', 'Process temperature [K]',
+                            'Rotational speed [rpm]', 'Air temperature [K]',
+                            'Tool wear [min]']
+        failure_types = ['Machine failure', 'HDF', 'PWF', 'OSF', 'TWF']
 
         plotter.calculate_failure_rate()
         plotter.failures_by_product_quality()
         plotter.leading_causes_of_failure()
         plotter.failure_causes_by_product_quality()
         plotter.failure_rate_analysis(
-            selected_column='Torque [Nm]',
-            target_column='HDF'
+            dataframe=self.pre_transform_data,
+            selected_column=machine_settings,
+            target_column=failure_types
             )
         plotter.plot_violin_plots(
             dataframe=self.pre_transform_data,
-            columns=columns_to_plot,
+            columns=machine_settings,
             x_column='Type'
             )
 
