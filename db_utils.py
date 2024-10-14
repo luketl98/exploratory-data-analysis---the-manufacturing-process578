@@ -27,6 +27,7 @@ TODO:
 3. Add 'Yeo-Johnson transform done' print statement, or allow user to choose
    which transformation method to use, following preview.
 4. Add full comments and Doc strings to all methods
+5. Is it better to use: 'if X is Not None' or 'if X'
 """
 
 
@@ -131,7 +132,7 @@ class Plotter:
 
     def _create_subplots(self, num_plots, cols=3, subplot_size=(4, 4)):
         """Helper method to handle subplot creation with dynamic columns."""
-        # Adjust cols to be the smaller value between the specified columns and num_plots
+        # Adjust cols to be the smaller value out of specified cols & num_plots
         cols = min(cols, num_plots)
         # Calculate the number of rows needed based on the number of columns
         rows = (num_plots // cols) + (num_plots % cols > 0)
@@ -139,6 +140,53 @@ class Plotter:
         plt.figure(figsize=(subplot_size[0] * cols, subplot_size[1] * rows))
 
         return rows, cols
+
+    def auto_bin_width(self, data, num_bins=36):
+        """
+        Calculate the bin width for a histogram using a custom approach with a specified number of bins,
+        rounding to the nearest significant figure (order of magnitude).
+
+        Parameters:
+        - data (array-like): The data for which to calculate the bin width.
+        - num_bins (int, optional): The number of bins to use for the calculation. Default is 36.
+
+        Returns:
+        - float: The computed bin width.
+        """
+        data = np.asarray(data)
+        n = len(data)
+
+        if n < 2:
+            raise ValueError("Data must contain at least two data points.")
+
+        # Use the specified number of bins
+        data_range = np.max(data) - np.min(data)
+
+        print(f"\nData range: {data_range}")
+
+        # Calculate bin width
+        bin_width = data_range / num_bins
+
+        print(f"Initial bin width: {bin_width}")
+
+        # Round the bin width to the nearest significant figure
+        if bin_width == 0:
+            print("Bin width is zero; returning zero.")
+            return 0
+        # Determine the order of magnitude of the value
+        order_of_magnitude = 10 ** (np.floor(np.log10(abs(bin_width))))
+        # Round to the nearest significant figure
+        rounded_bin_width = round(bin_width / order_of_magnitude) * order_of_magnitude
+
+        # If rounding results in zero, ensure we return a small but non-zero value
+        if rounded_bin_width == 0:
+            rounded_bin_width = bin_width
+
+        print(f"Rounded bin width: {rounded_bin_width}")
+
+        return rounded_bin_width
+
+    # TODO: Is there an auto_bin_width equivilant package or something?
 
     # --- Plot Methods ---
 
@@ -189,9 +237,13 @@ class Plotter:
         plt.show()
 
     def correlation_heatmap(self, include_booleans=False):
-        """Generate a heatmap of correlations for numerical and optionally boolean columns."""
+        """
+        Generate a heatmap of correlations for numerical
+        and optionally boolean columns.
+        """
         if include_booleans:
-            cols_to_include = self.dataframe.select_dtypes(include=[np.number, 'bool'])
+            cols_to_include = self.dataframe.select_dtypes(include=[np.number,
+                                                                    'bool'])
         else:
             cols_to_include = self.dataframe.select_dtypes(include=[np.number])
 
@@ -213,26 +265,40 @@ class Plotter:
         plt.tight_layout()
         plt.show()
 
-    def plot_boxplots(self, columns=None, x_column=None, exclude_columns=None):
+    def plot_boxplots(self, dataframe=None, columns=None,
+                      x_column=None, exclude_columns=None):
         """
         Generate boxplots for specified columns, optionally comparing against
         a categorical column (like failure states).
 
         Parameters:
-            columns (list): List of columns to plot. If None, all numeric columns
-                            will be used.
-            x_column (str): Categorical column for x-axis (e.g., 'Machine failure').
-                            If None, boxplots will be created without a categorical comparison.
+            dataframe (DataFrame): DataFrame to be used for plotting.
+                                   If None, defaults to self.dataframe.
+            columns (list): List of columns to plot. If None, all numeric
+                            columns will be used.
+            x_column (str): Categorical column for x-axis
+                            (e.g., 'Machine failure').
+                            If None, boxplots will be created without a
+                            categorical comparison.
             exclude_columns (list): List of columns to exclude from the plots.
         """
+        # Use provided dataframe or default to self.dataframe
+        # TODO: better way of doing this? (below)
+        dataframe_to_use = dataframe if dataframe is not None else self.dataframe
+
         # If columns are not provided, default to all numeric columns
         if columns is None:
-            columns = filter_columns(self.dataframe, np.number, exclude_columns)
+            columns = filter_columns(dataframe_to_use,
+                                     np.number,
+                                     exclude_columns)
 
         num_cols = len(columns)
 
         # Create subplots based on number of columns
-        rows, cols = self._create_subplots(num_cols, cols=3, subplot_size=(4, 4))
+        rows, cols = self._create_subplots(num_cols,
+                                           cols=3,
+                                           subplot_size=(4, 4)
+                                           )
 
         # Plot each column
         for i, col in enumerate(columns, 1):
@@ -240,10 +306,11 @@ class Plotter:
 
             # If x_column is provided, use it for comparison, else plot simple boxplot
             if x_column:
-                sns.boxplot(x=x_column, y=self.dataframe[col], data=self.dataframe)
+                sns.boxplot(x=x_column, y=dataframe_to_use[col], data=dataframe_to_use)
                 plt.xlabel(x_column)
             else:
-                sns.boxplot(x=self.dataframe[col])
+                sns.boxplot(x=dataframe_to_use[col])
+                # TODO: Is this if-else necessary? ^
                 plt.xlabel('')
 
             plt.title(f'Boxplot of {col}')
@@ -406,10 +473,13 @@ class Plotter:
         failure_percent_by_quality = (
             failures_by_quality / total_by_quality) * 100
 
+        # TODO: 'dtype: int64' being printed in terminal
         print("\nTotal by Product Quality:\n", total_by_quality)
         print("\nFailures by Product Quality:\n", failures_by_quality)
         print("\nFailure Percentage by Product Quality:\n",
               failure_percent_by_quality)
+
+        # TODO: Separate plotting from above (move above into EDAExecutor)
 
         # Visualise failures by product quality
         plt.figure(figsize=(8, 6))
@@ -505,46 +575,77 @@ class Plotter:
     def failure_rate_analysis(self, selected_column, target_column):
         """
         Line plot:
-        Divide the selected column values into bins and calculate the failure rate
-        within each bin. Visualise the failure rate against the selected column
-        to identify a recommended maximum value.
+        Divide the selected column values into bins and calculate the failure
+        rate within each bin. Visualise the failure rate against the
+        selected column to identify a recommended maximum value.
 
         Parameters:
-            selected_column (str): The column to divide into bins (e.g., 'Torque [Nm]').
-            target_column (str): The target column indicating failures (e.g., 'HDF').
+            selected_column (str): The column to divide into bins
+            target_column (str): The target column indicating failures
         """
 
-        # Creating bins with a width of 10 units to group similar values together
+        # Creating bins with a chosen width
+        bin_width = 2
         self.dataframe['Selected Bin'] = pd.cut(
             self.dataframe[selected_column],
-            # Create bins of from 0 to max value + 10, end number = bin width
-            bins=range(0, int(self.dataframe[selected_column].max()) + 2, 2),
+            # Create bins of from 0 to max value + bin width
+            bins=range(0,
+                       int(self.dataframe[selected_column].max()) + bin_width,
+                       bin_width),
             right=False  # Ensures the bins are left-closed, right-open
         )
 
         # Calculating the total count and failure count for each bin
-        bin_failure_counts = self.dataframe.groupby('Selected Bin')[target_column].sum()
-        bin_total_counts = self.dataframe.groupby('Selected Bin').size()
-        failure_rate = (bin_failure_counts / bin_total_counts) * 100  # Calculate failure rate in percentage
+        bin_failure_counts = self.dataframe.groupby(
+            'Selected Bin')[target_column].sum()
+        bin_total_counts = self.dataframe.groupby(
+            'Selected Bin').size()
+        # Calculate failure rate in percentage
+        failure_rate = (bin_failure_counts / bin_total_counts) * 100
 
         # Plotting failure rate for each bin to identify trends
         plt.figure(figsize=(10, 6))
         plt.plot(
-            failure_rate.index.astype(str),  # Convert bin index to string for better x-axis labels
+            # Convert bin index to string for better x-axis labels
+            failure_rate.index.astype(str),
             failure_rate.values,  # Failure rate values
             marker='o',  # Use circle markers for data points
             linestyle='-',  # Connect data points with lines
             color='red'  # Set line color to red
         )
+        plt.suptitle('Failure rate analysis')
         plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels
-        plt.title(f'{target_column} Failure Rate vs {selected_column} Bins')  # Set plot title
+        plt.title(f'{target_column} Rate vs {selected_column} Bins')
         plt.xlabel(f'{selected_column} Bins')  # Set x-axis label
         plt.ylabel(f'{target_column} Failure Rate (%)')  # Set y-axis label
         plt.tight_layout()  # Adjust layout to prevent overlap
         plt.show()
 
-        # Removing the 'Selected Bin' column after analysis to avoid affecting other calculations
+        # Remove 'Selected Bin' column after analysis
         self.dataframe.drop(columns=['Selected Bin'], inplace=True)
+
+    def plot_violin_plots(self, dataframe, columns, x_column):
+        """
+        Create violin plots for specified columns, grouped by a categorical column.
+
+        Parameters:
+            dataframe (pd.DataFrame): The dataframe containing the data.
+            columns (list): List of columns to plot.
+            x_column (str): The categorical column for grouping (e.g., 'Type').
+        """
+        # Use the _create_subplots method to create the subplots layout
+        num_cols = len(columns)
+        rows, cols = self._create_subplots(num_cols)
+
+        # Create subplots for each column
+        for i, column in enumerate(columns, 1):
+            plt.subplot(rows, cols, i)
+            sns.violinplot(data=dataframe, x=x_column, y=column)
+            plt.title(f'Violin Plot of {column} by {x_column}')
+
+        plt.suptitle(f'Violin Plots for Selected Columns by {x_column}')
+        plt.tight_layout()
+        plt.show()
 
 
 class DataFrameInfo:
@@ -943,6 +1044,7 @@ class EDAExecutor:
         plotter.plot_bar_plots(exclude_columns='Product ID')
         plotter.correlation_heatmap()
         plotter.missing_data_matrix()
+        # TODO: boxplots missing axis titles
         plotter.plot_boxplots(exclude_columns='UDI')
         plotter.plot_skewness(exclude_columns='UDI')
         plotter.plot_qq(exclude_columns='UDI')
@@ -989,13 +1091,12 @@ class EDAExecutor:
     def handle_skewness_and_transformations(self, data,
                                             visualisations_on=True):
         """Handle skewness detection and transformation of columns."""
-        df_info = DataFrameInfo(data)
         df_transform = DataFrameTransform(data)
         plotter = Plotter(data)
 
-        # Save the current dataframe to self.pre_transform_data before transformation
+        # Save current dataframe to self.pre_transform_data pre transformation
         if self.pre_transform_data is None:
-            self.pre_transform_data = data.copy()  # Save the whole dataframe pre-transform
+            self.pre_transform_data = data.copy()
 
         # Preview and visualise transformation (if visualisation flag is True)
         if visualisations_on:
@@ -1024,6 +1125,7 @@ class EDAExecutor:
     def handle_outlier_detection(self, data):
         """Detect and handle outliers in the data."""
         df_info = DataFrameInfo(data)
+        plotter = Plotter(data)
         # TODO: Only detects outliers in 'Rotational speed [rpm]
         print("\nDetecting Z-score Outliers:")
         zscore_outliers = df_info.detect_outliers_zscore(
@@ -1035,7 +1137,6 @@ class EDAExecutor:
         print(iqr_outliers)
 
         # Visualise outliers
-        plotter = Plotter(data)
         plotter.scatter_multiple_plots([
             ('Air temperature [K]', 'Process temperature [K]'),
             ('Rotational speed [rpm]', 'Torque [Nm]'),
@@ -1050,6 +1151,7 @@ class EDAExecutor:
     # Task 1: Operating Ranges Analysis
     def analyse_operating_ranges(self, data):
         """Analyse and display operating ranges across product types."""
+        plotter = Plotter(data)
         selected_columns = [
             'Air temperature [K]', 'Process temperature [K]',
             'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]'
@@ -1083,16 +1185,31 @@ class EDAExecutor:
             )
             print(type_specific_ranges)
 
+        plotter.plot_tool_wear_distribution()
+        plotter.plot_tool_wear_by_quality()
+
     # Task 2: Failures Analysis
     def analyse_failures(self, data):
         """Analyse failures by product quality and failure type."""
         plotter = Plotter(data)
+
+        columns_to_plot = ['Torque [Nm]', 'Process temperature [K]',
+                           'Rotational speed [rpm]', 'Air temperature [K]',
+                           'Tool wear [min]']
+
+        plotter.calculate_failure_rate()
         plotter.failures_by_product_quality()
         plotter.leading_causes_of_failure()
         plotter.failure_causes_by_product_quality()
         plotter.failure_rate_analysis(
             selected_column='Torque [Nm]',
-            target_column='HDF')
+            target_column='HDF'
+            )
+        plotter.plot_violin_plots(
+            dataframe=self.pre_transform_data,
+            columns=columns_to_plot,
+            x_column='Type'
+            )
 
     # Task 3: Deeper Understanding of Failures
     def analyse_failure_risk_factors(self, data):
@@ -1111,22 +1228,23 @@ class EDAExecutor:
 
         # For failure risk factors with failure comparison
         # Boxplots of failure type vs setting value
-        fail_type = ['Machine failure', 'HDF', 'OSF']
+        fail_type = ['Machine failure', 'HDF', 'OSF', 'PWF']
         columns_to_plot = ['Torque [Nm]', 'Process temperature [K]',
                            'Rotational speed [rpm]', 'Air temperature [K]',
                            'Tool wear [min]']
         for fail_type in fail_type:
-            plotter.plot_boxplots(columns=columns_to_plot, x_column=fail_type)
+            plotter.plot_boxplots(dataframe=self.pre_transform_data,
+                                  columns=columns_to_plot,
+                                  x_column=fail_type)
+
+        # Boxplot to compare 'L' product type against the rest
+        plotter.plot_boxplots(
+            columns=columns_to_plot,
+            x_column='Type'
+        )
 
         # Generate correlation heatmap including failure types
         plotter.correlation_heatmap(include_booleans=True)
-
-        column_pairs = [('Torque [Nm]', 'Process temperature [K]'),
-                        ('Air temperature [K]', 'Process temperature [K]'),
-                        ('Torque [Nm]', 'HDF'),
-                        ('Process temperature [K]', 'HDF'),
-                        ('Rotational speed [rpm]', 'PWF')]
-        plotter.scatter_multiple_plots(column_pairs)
 
         selected_columns = [
             'Air temperature [K]', 'Process temperature [K]',
@@ -1137,7 +1255,7 @@ class EDAExecutor:
         if self.pre_transform_data is None:
             raise ValueError("Pre-transformation data is not available.")
 
-        # Loop through each failure type (HDF, OSF, PWF) and True/False statuses
+        # Loop through chosen failure type's and True/False statuses
         for failure_type in ['HDF', 'OSF', 'PWF']:
             for failure_status in [True, False]:
                 print(f"\nOperating Ranges for {failure_type} = {failure_status}")
