@@ -39,7 +39,7 @@ def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
     return credentials
 
 
-# --- Utility Methods ---
+# --- Utility Methods -----
 
 
 def filter_columns(dataframe: pd.DataFrame, dtype, exclude_columns=None):
