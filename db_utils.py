@@ -32,8 +32,8 @@ TODO:
 
 
 # Function to load database credentials from a YAML file
-def load_db_credentials(file_path: str = 'credentials.yaml') -> dict:
-    with open(file_path, 'r') as file:
+def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
+    with open(file_path, "r") as file:
         credentials = yaml.safe_load(file)
 
     return credentials
@@ -41,13 +41,15 @@ def load_db_credentials(file_path: str = 'credentials.yaml') -> dict:
 
 # --- Utility Methods ---
 
+
 def filter_columns(dataframe: pd.DataFrame, dtype, exclude_columns=None):
-    """ Helper method to select DataFrame columns by dtype
-    and select columns to drop. """
+    """Helper method to select DataFrame columns by dtype
+    and select columns to drop."""
     if exclude_columns is None:
         exclude_columns = []
     return [
-        col for col in dataframe.select_dtypes(include=[dtype]).columns
+        col
+        for col in dataframe.select_dtypes(include=[dtype]).columns
         if col not in exclude_columns
     ]
 
@@ -113,18 +115,18 @@ class DataTransform:
         self.dataframe = dataframe
 
     def convert_to_categorical(self, column_name: str):
-        """ Convert the specified column to a categorical data type. """
-        self.dataframe[column_name] = self.dataframe[
-            column_name].astype('category')
+        """Convert the specified column to a categorical data type."""
+        self.dataframe[column_name] = self.dataframe[column_name].astype("category")
 
     def convert_to_boolean(self, column_name: str):
-        """ Convert the specified column to a boolean data type. """
+        """Convert the specified column to a boolean data type."""
         self.dataframe[column_name] = self.dataframe[column_name].astype(bool)
 
 
 class Plotter:
     """Class to visualise insights from the data."""
-# TODO: Can this method be refactored at all? any redundant methods or code
+
+    # TODO: Can this method be refactored at all? any redundant methods or code
     def __init__(self, dataframe):
         self.dataframe = dataframe
 
@@ -137,52 +139,57 @@ class Plotter:
         # Calculate the number of rows needed based on the number of columns
         rows = (num_plots // cols) + (num_plots % cols > 0)
         # Set the figure size based on the number of rows and columns
-        fig, axes = plt.subplots(rows, cols, figsize=(subplot_size[0] * cols, subplot_size[1] * rows))
-    
+        fig, axes = plt.subplots(
+            rows, cols, figsize=(subplot_size[0] * cols, subplot_size[1] * rows)
+        )
+
         # Flatten axes if there's more than one, else convert it to a list
         if num_plots == 1:
             axes = [axes]
         else:
             axes = axes.flatten()
-    
+
         # Hide any extra axes
         for ax in axes[num_plots:]:
             ax.set_visible(False)
-    
+
         # Return rows and cols to maintain compatibility with existing calls
         self.fig = fig
         self.axes = axes
         return rows, cols
 
         # TODO: Is there an auto_bin_width equivilant package or something?
+
     def auto_bin_width(self, data, num_bins=25):
         """
-        Calculate the bin width for a histogram using a custom approach with a specified number of bins,
-        rounding to the nearest significant figure (order of magnitude).
+        Calculate the bin width for a histogram using a custom approach with
+        a specified number of bins, rounding to the nearest significant
+        figure (order of magnitude).
 
         Parameters:
         - data (array-like): The data for which to calculate the bin width.
-        - num_bins (int, optional): The number of bins to use for the calculation. Default is 36.
+        - num_bins (int, optional): The number of bins to use for the
+          calculation. Default is 36.
 
         Returns:
         - float: The computed bin width.
         """
         data = np.asarray(data)
         n = len(data)
-    
+
         if n < 2:
             raise ValueError("Data must contain at least two data points.")
-        
+
         # Use the specified number of bins
         data_range = np.max(data) - np.min(data)
 
-        print(f"\nData range: {data_range}")
-    
+        # print(f"\nData range: {data_range}")
+
         # Calculate bin width
         bin_width = data_range / num_bins
 
-        print(f"Initial bin width: {bin_width}")
-    
+        # print(f"Initial bin width: {bin_width}")
+
         # Round the bin width to the nearest significant figure
         if bin_width == 0:
             raise ValueError("Bin width cannot be 0")
@@ -200,24 +207,40 @@ class Plotter:
         if rounded_bin_width.is_integer():
             rounded_bin_width = int(rounded_bin_width)
 
-        print(f"Rounded bin width: {rounded_bin_width}")
-    
+        # print(f"Rounded bin width: {rounded_bin_width}")
+
         return rounded_bin_width
 
     # --- Plot Methods ---
 
-    def plot_line_chart(self, ax, x_values, y_values, title="Line Chart", group_columns=None, x_label=None, y_label=None):
+    def plot_line_chart(
+        self,
+        ax,
+        x_values,
+        y_values,
+        title="Line Chart",
+        group_columns=None,
+        x_label=None,
+        y_label=None,
+    ):
         """
-        Generic line plot method to visualise data, with optional support for grouping.
+        Generic line plot method to visualise data, with optional
+        support for grouping.
 
         Parameters:
-            ax (matplotlib.axes._subplots.AxesSubplot): The axes on which to plot the line chart.
-            x_values (pd.Index or array-like): The values to plot on the x-axis.
-            y_values (pd.Series or dict): The values to plot on the y-axis. Can be a single series or a dictionary for multiple groups.
+            ax (matplotlib.axes._subplots.AxesSubplot): The axes on which
+                                                        to plot the line chart
+            x_values (pd.Index or array-like): Values to plot on the x-axis.
+            y_values (pd.Series or dict): The values to plot on the y-axis.
+                                          Can be a single series or a
+                                          dictionary for multiple groups.
             title (str, optional): Title for the plot. Default is "Line Chart".
-            group_columns (list, optional): List of group labels for plotting multiple lines.
-            x_label (str, optional): Label for the x-axis. Default is None, which uses the x_values label.
-            y_label (str, optional): Label for the y-axis. Default is None, which uses the y_values label.
+            group_columns (list, optional): List of group labels for
+                                            plotting multiple lines.
+            x_label (str, optional): Label for the x-axis. Default is None,
+                                     which uses the x_values label.
+            y_label (str, optional): Label for the y-axis. Default is None,
+                                     which uses the y_values label.
         """
         if group_columns is not None:
             # Plotting multiple lines for each group
@@ -225,26 +248,20 @@ class Plotter:
                 ax.plot(
                     x_values,
                     y_values[group],
-                    marker='o',
-                    linestyle='-',
-                    label=f'{group}'
+                    marker="o",
+                    linestyle="-",
+                    label=f"{group}",
                 )
             ax.legend(title="legend")
         else:
             # Plotting a single line
-            ax.plot(
-                x_values,
-                y_values,
-                marker='o',
-                linestyle='-',
-                color='red'
-            )
+            ax.plot(x_values, y_values, marker="o", linestyle="-", color="red")
         ax.set_xticks(range(len(x_values)))
-        ax.set_xticklabels(x_values, rotation=45, ha='right')
+        ax.set_xticklabels(x_values, rotation=45, ha="right")
         ax.set_title(title)
         ax.set_xlabel(x_label if x_label else str(x_values))
         ax.set_ylabel(y_label if y_label else str(y_values))
-        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
     def scatter_multiple_plots(self, column_pairs):
         # TODO: e number being printed on some plots
@@ -255,11 +272,11 @@ class Plotter:
         for i, (x_col, y_col) in enumerate(column_pairs, 1):
             plt.subplot(rows, cols, i)
             plt.scatter(self.dataframe[x_col], self.dataframe[y_col])
-            plt.title(f'{x_col} vs {y_col}')
+            plt.title(f"{x_col} vs {y_col}")
             plt.xlabel(x_col)
             plt.ylabel(y_col)
 
-        plt.suptitle('Scatter plots for selected column pairs')
+        plt.suptitle("Scatter plots for selected column pairs")
         plt.show()
 
     def plot_histograms(self, exclude_columns=None):
@@ -271,24 +288,24 @@ class Plotter:
             exclude_columns (list): List of columns to exclude
             from the histograms.
         """
-        numeric_cols = filter_columns(self.dataframe, np.number,
-                                      exclude_columns=exclude_columns)
+        numeric_cols = filter_columns(
+            self.dataframe, np.number, exclude_columns=exclude_columns
+        )
         self.dataframe[numeric_cols].hist(bins=20, figsize=(15, 10))
-        plt.suptitle('Histograms for Numeric Columns')
+        plt.suptitle("Histograms for Numeric Columns")
         plt.tight_layout()
         plt.show()
 
     def plot_bar_plots(self, exclude_columns=None):
         """Generate bar plots for all categorical columns."""
-        categorical_cols = filter_columns(self.dataframe, 'category',
-                                          exclude_columns)
+        categorical_cols = filter_columns(self.dataframe, "category", exclude_columns)
         plt.figure()
 
         for i, col in enumerate(categorical_cols):
             plt.subplot(1, len(categorical_cols), i + 1)
-            self.dataframe[col].value_counts().plot(kind='bar')
+            self.dataframe[col].value_counts().plot(kind="bar")
             plt.title(col)
-        plt.suptitle('Bar plots of all categorical columns')
+        plt.suptitle("Bar plots of all categorical columns")
         plt.tight_layout()
         plt.show()
 
@@ -298,18 +315,22 @@ class Plotter:
         and optionally boolean columns.
         """
         if include_booleans:
-            cols_to_include = self.dataframe.select_dtypes(include=[np.number,
-                                                                    'bool'])
+            cols_to_include = self.dataframe.select_dtypes(include=[np.number, "bool"])
         else:
             cols_to_include = self.dataframe.select_dtypes(include=[np.number])
 
         plt.figure(figsize=(10, 8))  # Adjust the figure size
-        sns.heatmap(cols_to_include.corr(), annot=True,
-                    cmap='coolwarm', fmt='.2f', cbar_kws={'shrink': .8})
+        sns.heatmap(
+            cols_to_include.corr(),
+            annot=True,
+            cmap="coolwarm",
+            fmt=".2f",
+            cbar_kws={"shrink": 0.8},
+        )
         # Rotate x-axis & y-axis labels for readability
-        plt.xticks(rotation=45, ha='right')
+        plt.xticks(rotation=45, ha="right")
         plt.yticks(rotation=0)
-        plt.title('Correlation Heatmap')
+        plt.title("Correlation Heatmap")
         plt.tight_layout()  # Adjust layout to prevent overlap
         plt.show()
 
@@ -317,12 +338,13 @@ class Plotter:
         # TODO: self.dataframe or data? (same for all plotter class)
         """Display a missing data matrix."""
         msno.matrix(self.dataframe, figsize=(14, 6), sparkline=False)
-        plt.title('Missing Data Matrix')
+        plt.title("Missing Data Matrix")
         plt.tight_layout()
         plt.show()
 
-    def plot_boxplots(self, dataframe=None, columns=None,
-                      x_column=None, exclude_columns=None):
+    def plot_boxplots(
+        self, dataframe=None, columns=None, x_column=None, exclude_columns=None
+    ):
         """
         Generate boxplots for specified columns, optionally comparing against
         a categorical column (like failure states).
@@ -344,58 +366,55 @@ class Plotter:
 
         # If columns are not provided, default to all numeric columns
         if columns is None:
-            columns = filter_columns(dataframe_to_use,
-                                     np.number,
-                                     exclude_columns)
+            columns = filter_columns(dataframe_to_use, np.number, exclude_columns)
 
         num_cols = len(columns)
 
         # Create subplots based on number of columns
-        rows, cols = self._create_subplots(num_cols,
-                                           cols=3,
-                                           subplot_size=(4, 4)
-                                           )
+        rows, cols = self._create_subplots(num_cols, cols=3, subplot_size=(4, 4))
 
         # Plot each column
         for i, col in enumerate(columns, 1):
             plt.subplot(rows, cols, i)
 
-            # If x_column is provided, use it for comparison, else plot simple boxplot
+            # If x_column is provided, use it for comparison,
+            # else plot simple boxplot.
             if x_column:
                 sns.boxplot(x=x_column, y=dataframe_to_use[col], data=dataframe_to_use)
                 plt.xlabel(x_column)
             else:
                 sns.boxplot(x=dataframe_to_use[col])
                 # TODO: Is this if-else necessary? ^
-                plt.xlabel('')
+                plt.xlabel("")
 
-            plt.title(f'Boxplot of {col}')
+            plt.title(f"Boxplot of {col}")
 
-        plt.suptitle('Boxplots for Selected Columns')
+        plt.suptitle("Boxplots for Selected Columns")
         plt.tight_layout()
         plt.show()
 
     def plot_null_comparison(self, null_counts_before, null_counts_after):
         """Plot comparison of null counts before and after imputation."""
-        null_data = pd.DataFrame({
-            'Before Imputation': null_counts_before['null_count'],
-            'After Imputation': null_counts_after['null_count']
-        })
+        null_data = pd.DataFrame(
+            {
+                "Before Imputation": null_counts_before["null_count"],
+                "After Imputation": null_counts_after["null_count"],
+            }
+        )
 
         # Generate the bar plot and handle figure creation directly
-        ax = null_data.plot(kind='bar')  # Use 'ax' to manipulate the plot
+        ax = null_data.plot(kind="bar")  # Use 'ax' to manipulate the plot
 
         # Set the title and labels directly on the ax object
-        ax.set_title('Null Count Before and After Imputation')
-        ax.set_ylabel('Null Count')
+        ax.set_title("Null Count Before and After Imputation")
+        ax.set_ylabel("Null Count")
 
         plt.tight_layout()
         plt.show()
 
     def plot_skewness(self, exclude_columns=None):
         """Plot histograms for numeric columns with skewness information."""
-        numeric_columns = filter_columns(self.dataframe, np.number,
-                                         exclude_columns)
+        numeric_columns = filter_columns(self.dataframe, np.number, exclude_columns)
         num_plots = len(numeric_columns)
         rows, cols = self._create_subplots(num_plots)
 
@@ -403,14 +422,14 @@ class Plotter:
             skew_value = self.dataframe[column].skew()
             plt.subplot(rows, cols, i)
             self.dataframe[column].hist(bins=50)
-            plt.title(f'{column} (Skew: {skew_value:.2f})')
+            plt.title(f"{column} (Skew: {skew_value:.2f})")
 
-        plt.suptitle('Histograms for numeric columns with Skewness value')
+        plt.suptitle("Histograms for numeric columns with Skewness value")
         plt.show()
 
-    def visualise_transformed_column(self, column: str,
-                                     original: pd.Series,
-                                     transformed: pd.Series):
+    def visualise_transformed_column(
+        self, column: str, original: pd.Series, transformed: pd.Series
+    ):
         """
         Visualise the original vs transformed column and show skew values.
         """
@@ -423,73 +442,50 @@ class Plotter:
 
         # Plot the original data
         plt.subplot(1, 2, 1)
-        plt.hist(original, bins=30, color='blue', alpha=0.7)
-        plt.title(f'Original {column} (Skew: {original_skew:.2f})')
+        plt.hist(original, bins=30, color="blue", alpha=0.7)
+        plt.title(f"Original {column} (Skew: {original_skew:.2f})")
 
         # Plot the transformed data
         plt.subplot(1, 2, 2)
-        plt.hist(transformed, bins=30, color='green', alpha=0.7)
-        plt.title(f'Transformed {column} (Skew: {transformed_skew:.2f})')
+        plt.hist(transformed, bins=30, color="green", alpha=0.7)
+        plt.title(f"Transformed {column} (Skew: {transformed_skew:.2f})")
 
         # Add a main title and show the plots
-        plt.suptitle(f'Original vs Transformed {column}')
+        plt.suptitle(f"Original vs Transformed {column}")
         plt.show()
 
     def plot_qq(self, exclude_columns=None):
         """Generate Q-Q plots for numeric columns."""
-        numeric_columns = filter_columns(self.dataframe, np.number,
-                                         exclude_columns)
+        numeric_columns = filter_columns(self.dataframe, np.number, exclude_columns)
         num_plots = len(numeric_columns)
         rows, cols = self._create_subplots(num_plots)
 
         for i, col in enumerate(numeric_columns, 1):
             plt.subplot(rows, cols, i)
-            qqplot(self.dataframe[col], line='q', ax=plt.gca())
+            qqplot(self.dataframe[col], line="q", ax=plt.gca())
             plt.title(f"Q-Q plot of {col}")
 
-        plt.suptitle('Q-Q plots for numeric columns')
+        plt.suptitle("Q-Q plots for numeric columns")
         plt.show()
 
-        # -- Further Analysis --
+        # ------------ Further Analysis ------------ #
 
-    def plot_tool_wear_distribution(self, bins=20):
-        """Visualise the distribution of tool wear values with improvements."""
+    def plot_tool_wear_distribution(self, bins=30):
+        """
+        Histogram to visualise the distribution of tool wear
+        values.
+        """
         plt.figure(figsize=(10, 6))
 
         # Create bins to group similar tool wear values together
-        self.dataframe['Tool wear [min]'].plot(
-            kind='hist', bins=30, edgecolor='black')
+        self.dataframe["Tool wear [min]"].plot(
+            kind="hist", bins=bins, edgecolor="black"
+        )
 
-        plt.title('Tool Wear Distribution')
-        plt.xlabel('Tool wear [min]')
-        plt.ylabel('Number of Tools')
+        plt.title("Tool Wear Distribution")
+        plt.xlabel("Tool wear [min]")
+        plt.ylabel("Number of Tools")
 
-        plt.tight_layout()
-        plt.show()
-
-    def plot_tool_wear_by_quality(self):
-        """Visualise tool wear distribution by product quality."""
-        plt.figure(figsize=(10, 6))
-
-        # Define consistent bins for all product types
-        bins = np.histogram_bin_edges(self.dataframe['Tool wear [min]'],
-                                      bins=30)
-
-        # Create a histogram for each product type
-        for product_type, color in zip(['L', 'M', 'H'],
-                                       ['blue', 'orange', 'green']):
-            subset = self.dataframe[self.dataframe['Type'] == product_type]
-            plt.hist(subset['Tool wear [min]'], bins=bins, alpha=0.5,
-                     label=f'Type {product_type}', edgecolor='black')
-
-        plt.title('Tool Wear Distribution by Product Quality')
-        plt.xlabel('Tool wear [min]')
-        plt.ylabel('Number of Tools')
-        # Set x-axis ticks every 10 minutes
-        plt.xticks(np.arange(0, 260, 10))  # Adjust range and step as needed
-        # Set y-axis ticks every 50
-        plt.yticks(np.arange(0, 500, 50))
-        plt.legend(title='Product Quality Type')
         plt.tight_layout()
         plt.show()
 
@@ -499,7 +495,7 @@ class Plotter:
         and percentage of failures.
         """
         total_processes = len(self.dataframe)
-        total_failures = self.dataframe['Machine failure'].sum()
+        total_failures = self.dataframe["Machine failure"].sum()
 
         failure_percentage = (total_failures / total_processes) * 100
 
@@ -508,11 +504,16 @@ class Plotter:
         print(f"Failure Percentage: {failure_percentage:.2f}%")
 
         # Visualise failure rate
-        labels = ['Failures', 'Non-failures']
+        labels = ["Failures", "Non-failures"]
         sizes = [total_failures, total_processes - total_failures]
-        plt.pie(sizes, labels=labels, autopct='%1.1f%%',
-                startangle=90, colors=['red', 'green'])
-        plt.title('Failure Rate in the Manufacturing Process')
+        plt.pie(
+            sizes,
+            labels=labels,
+            autopct="%1.1f%%",
+            startangle=90,
+            colors=["red", "green"],
+        )
+        plt.title("Failure Rate in the Manufacturing Process")
         plt.tight_layout()
         plt.show()
 
@@ -522,47 +523,61 @@ class Plotter:
         print in terminal & visualise them.
         """
         # Group by product quality and count failures
-        failures_by_quality = self.dataframe.groupby(
-            'Type')['Machine failure'].sum()
-        total_by_quality = self.dataframe.groupby('Type').size()
+        failures_by_quality = self.dataframe.groupby("Type")["Machine failure"].sum()
+        total_by_quality = self.dataframe.groupby("Type").size()
 
-        failure_percent_by_quality = (
-            failures_by_quality / total_by_quality) * 100
+        failure_percent_by_quality = round(
+            (failures_by_quality / total_by_quality) * 100, 2
+        )
 
         # TODO: 'dtype: int64' being printed in terminal
         print("\nTotal by Product Quality:\n", total_by_quality)
         print("\nFailures by Product Quality:\n", failures_by_quality)
-        print("\nFailure Percentage by Product Quality:\n",
-              failure_percent_by_quality)
+        print("\nFailure Percentage by Product Quality:\n", failure_percent_by_quality)
 
         # TODO: Separate plotting from above (move above into EDAExecutor)
 
         # Visualise failures by product quality
         plt.figure(figsize=(8, 6))
-        bars = plt.bar(failures_by_quality.index, failures_by_quality.values,
-                       color=['blue', 'orange', 'green'], edgecolor='black')
+        bars = plt.bar(
+            failures_by_quality.index,
+            failures_by_quality.values,
+            color=["blue", "orange", "green"],
+            edgecolor="black",
+        )
 
         # Annotate bars with the percentage of total failures
         for bar, percent in zip(bars, failure_percent_by_quality):
             yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2, yval,
-                     f'{percent:.1f}%', ha='center', va='bottom')
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                yval,
+                f"{percent:.1f}%",
+                ha="center",
+                va="bottom",
+            )
 
-        plt.title('Failure rate by Product Quality (Type)')
-        plt.xlabel('Product Quality (Type)')
-        plt.ylabel('Number of Failures')
+        plt.title("Failure rate by Product Quality (Type)")
+        plt.xlabel("Product Quality (Type)")
+        plt.ylabel("Number of Failures")
 
         # Add the text legend in a box with opacity
-        plt.text(0.95, 0.95, '% = failure rate in each quality type',
-                 ha='right', va='top', transform=plt.gca().transAxes,
-                 bbox=dict(facecolor='white', alpha=0.6))
+        plt.text(
+            0.95,
+            0.95,
+            "% = failure rate in each quality type",
+            ha="right",
+            va="top",
+            transform=plt.gca().transAxes,
+            bbox=dict(facecolor="white", alpha=0.6),
+        )
 
         plt.tight_layout()
         plt.show()
 
     def leading_causes_of_failure(self):
         """Determine, print and visualise the leading causes of failure."""
-        failure_columns = ['TWF', 'HDF', 'PWF', 'OSF', 'RNF']
+        failure_columns = ["TWF", "HDF", "PWF", "OSF", "RNF"]
 
         # Sum the failures for each failure type
         cause_of_failure_counts = self.dataframe[failure_columns].sum()
@@ -571,67 +586,77 @@ class Plotter:
         print("\nLeading Causes of Failure:\n", cause_of_failure_counts)
 
         # Calculate percentage of failures for each cause
-        failure_percent_by_cause = (
-            cause_of_failure_counts / total_failures) * 100
+        failure_percent_by_cause = (cause_of_failure_counts / total_failures) * 100
 
         # Visualise the causes of failure
         plt.figure(figsize=(8, 6))
-        bars = plt.bar(cause_of_failure_counts.index,
-                       cause_of_failure_counts.values,
-                       color='red', edgecolor='black')
+        bars = plt.bar(
+            cause_of_failure_counts.index,
+            cause_of_failure_counts.values,
+            color="red",
+            edgecolor="black",
+        )
 
         # Annotate bars with the percentage of total failures
         for bar, percent in zip(bars, failure_percent_by_cause):
             yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2, yval,
-                     f'{percent:.1f}%', ha='center', va='bottom')
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                yval,
+                f"{percent:.1f}%",
+                ha="center",
+                va="bottom",
+            )
 
-        plt.title('Leading Causes of Failure')
-        plt.xlabel('Failure Type')
-        plt.ylabel('Number of Failures')
+        plt.title("Leading Causes of Failure")
+        plt.xlabel("Failure Type")
+        plt.ylabel("Number of Failures")
         plt.tight_layout()
         plt.show()
 
     def failure_causes_by_product_quality(self):
         """
         Visualise leading causes of failure grouped by
-        product quality with percentages.
+        product quality with percentages via Browser.
         """
-
-        failure_columns = ['TWF', 'HDF', 'PWF', 'OSF', 'RNF']
-        failure_data = self.dataframe[self.dataframe['Machine failure'] == 1]
+        # TODO: This method is extra
+        failure_columns = ["TWF", "HDF", "PWF", "OSF", "RNF"]
+        failure_data = self.dataframe[self.dataframe["Machine failure"] == 1]
 
         # Group and prepare data
-        failures_grouped = failure_data.groupby(
-            'Type')[failure_columns].sum().reset_index()
+        failures_grouped = (
+            failure_data.groupby("Type")[failure_columns].sum().reset_index()
+        )
         failures_melted = failures_grouped.melt(
-            id_vars='Type', var_name='Failure Type', value_name='Count'
+            id_vars="Type", var_name="Failure Type", value_name="Count"
         )
         # Calculate percentages
-        totals = failures_melted.groupby('Type')['Count'].transform('sum')
-        failures_melted['Percentage'] = (
-            failures_melted['Count'] / totals) * 100
+        totals = failures_melted.groupby("Type")["Count"].transform("sum")
+        failures_melted["Percentage"] = (failures_melted["Count"] / totals) * 100
 
         # Create interactive plot via browser
         fig = px.bar(
             failures_melted,
-            x='Type',
-            y='Count',
-            color='Failure Type',
-            title='Failures by Product Quality and Failure Type',
-            labels={'Type': 'Product Quality (Type)',
-                    'Count': 'Number of Failures'},
-            hover_data={'Percentage': ':.1f%'},
+            x="Type",
+            y="Count",
+            color="Failure Type",
+            title="Failures by Product Quality and Failure Type",
+            labels={"Type": "Product Quality (Type)", "Count": "Number of Failures"},
+            hover_data={"Percentage": ":.1f%"},
         )
-        fig.update_layout(barmode='stack',
-                          xaxis_title='Product Quality (Type)',
-                          yaxis_title='Number of Failures')
+        fig.update_layout(
+            barmode="stack",
+            xaxis_title="Product Quality (Type)",
+            yaxis_title="Number of Failures",
+        )
         fig.show()
 
-    def failure_rate_analysis(self, dataframe, selected_column, target_column, group_column=None):
+    def failure_rate_analysis(
+        self, dataframe, selected_column, target_column, group_column=None
+    ):
         """
         Create subplots of line charts using selected columns and target columns.
-    
+
         Parameters:
             dataframe (pd.DataFrame): The DataFrame containing the data.
             selected_column (list): List of machine setting columns (e.g., ['Torque [Nm]', 'Rotational speed [rpm]']).
@@ -639,41 +664,56 @@ class Plotter:
             group_column (str, optional): The column to group by (e.g., 'Type').
         """
         num_plots = len(selected_column)
-        rows, cols = self._create_subplots(num_plots=num_plots, cols=3, subplot_size=(6, 4))
+        rows, cols = self._create_subplots(
+            num_plots=num_plots, cols=3, subplot_size=(6, 4)
+        )
         axes = self.axes
-    
+
         for idx, setting in enumerate(selected_column):
             # Calculate bin width using the auto_bin_width method
             bin_width = self.auto_bin_width(dataframe[setting])
-    
+
             # Creating bins with the calculated width starting from the minimum value of the data
             min_value = dataframe[setting].min()
-            dataframe['Selected Bin'] = pd.cut(
+            dataframe["Selected Bin"] = pd.cut(
                 dataframe[setting],
-                bins=np.arange(min_value, dataframe[setting].max() + bin_width, bin_width).astype(int) if isinstance(bin_width, int) else np.arange(min_value, dataframe[setting].max() + bin_width, bin_width),
-                right=False  # Ensures the bins are left-closed, right-open
+                bins=(
+                    np.arange(
+                        min_value, dataframe[setting].max() + bin_width, bin_width
+                    ).astype(int)
+                    if isinstance(bin_width, int)
+                    else np.arange(
+                        min_value, dataframe[setting].max() + bin_width, bin_width
+                    )
+                ),
+                right=False,  # Ensures the bins are left-closed, right-open
             )
-    
+
             # Group by 'Selected Bin' and 'target_column' and calculate failure rate for each type
-            grouped = dataframe.groupby(['Selected Bin'])[target_column].agg(['sum', 'size'])
+            grouped = dataframe.groupby(["Selected Bin"])[target_column].agg(
+                ["sum", "size"]
+            )
             failure_rates = {}
             for failure in target_column:
-                failure_rates[failure] = (grouped[(failure, 'sum')] / grouped[(failure, 'size')]) * 100
-    
+                failure_rates[failure] = (
+                    grouped[(failure, "sum")] / grouped[(failure, "size")]
+                ) * 100
+
             # Plotting the failure rate for each failure type
             self.plot_line_chart(
                 ax=axes[idx],
                 x_values=failure_rates[target_column[0]].index.astype(str),
                 y_values=failure_rates,
-                title=f'Failure Rate Analysis for {setting}',
+                title=f"Failure Rate Analysis for {setting}",
                 group_columns=target_column,
-                x_label=f'{setting} Bins',
-                y_label='Failure Rate (%)'
+                x_label=f"{setting} Bins",
+                y_label="Failure Rate (%)",
             )
-    
+
             # Remove 'Selected Bin' column after analysis
-            dataframe.drop(columns=['Selected Bin'], inplace=True)
-    
+            dataframe.drop(columns=["Selected Bin"], inplace=True)
+
+        plt.suptitle("Failure Rate Analysis")
         plt.tight_layout()
         plt.show()
 
@@ -694,9 +734,9 @@ class Plotter:
         for i, column in enumerate(columns, 1):
             plt.subplot(rows, cols, i)
             sns.violinplot(data=dataframe, x=x_column, y=column)
-            plt.title(f'Violin Plot of {column} by {x_column}')
+            plt.title(f"Violin Plot of {column} by {x_column}")
 
-        plt.suptitle(f'Violin Plots for Selected Columns by {x_column}')
+        plt.suptitle(f"Violin Plots for Selected Columns by {x_column}")
         plt.tight_layout()
         plt.show()
 
@@ -734,7 +774,7 @@ class DataFrameInfo:
         if include_columns is None:
             include_columns = self.dataframe.columns
 
-        description = self.dataframe[include_columns].describe(include='all')
+        description = self.dataframe[include_columns].describe(include="all")
 
         if stats_to_return is not None:
             description = description.loc[stats_to_return]
@@ -755,13 +795,14 @@ class DataFrameInfo:
             median, and standard deviation.
         """
         # Use the filter_columns utility to get the numeric columns
-        numeric_cols = filter_columns(self.dataframe, np.number,
-                                      exclude_columns=exclude_columns)
+        numeric_cols = filter_columns(
+            self.dataframe, np.number, exclude_columns=exclude_columns
+        )
 
         statistics = {
-            'mean': self.dataframe[numeric_cols].mean(),
-            'median': self.dataframe[numeric_cols].median(),
-            'std_dev': self.dataframe[numeric_cols].std()
+            "mean": self.dataframe[numeric_cols].mean(),
+            "median": self.dataframe[numeric_cols].median(),
+            "std_dev": self.dataframe[numeric_cols].std(),
         }
         return pd.DataFrame(statistics)
 
@@ -782,16 +823,17 @@ class DataFrameInfo:
             exclude_columns = []
 
         # Use the filter_columns utility to get categorical columns
-        categorical_columns = filter_columns(self.dataframe, 'category',
-                                             exclude_columns=exclude_columns)
+        categorical_columns = filter_columns(
+            self.dataframe, "category", exclude_columns=exclude_columns
+        )
 
         distinct_values = {
-            column: self.dataframe[column].nunique()
-            for column in categorical_columns
+            column: self.dataframe[column].nunique() for column in categorical_columns
         }
 
-        return pd.DataFrame.from_dict(distinct_values, orient='index',
-                                      columns=['distinct_count'])
+        return pd.DataFrame.from_dict(
+            distinct_values, orient="index", columns=["distinct_count"]
+        )
 
     def print_shape(self) -> None:
         """
@@ -810,10 +852,9 @@ class DataFrameInfo:
         null_count = self.dataframe.isnull().sum()
         null_percentage = (null_count / len(self.dataframe)) * 100
 
-        null_info = pd.DataFrame({
-            'null_count': null_count,
-            'null_percentage': null_percentage
-        })
+        null_info = pd.DataFrame(
+            {"null_count": null_count, "null_percentage": null_percentage}
+        )
 
         return null_info
 
@@ -826,8 +867,7 @@ class DataFrameInfo:
             threshold (float): The Z-score threshold to identify outliers.
         """
         z_scores = stats.zscore(self.dataframe[column])
-        outliers = self.dataframe[(
-            z_scores > threshold) | (z_scores < -threshold)]
+        outliers = self.dataframe[(z_scores > threshold) | (z_scores < -threshold)]
         return outliers
 
     def detect_outliers_iqr(self, column: str):
@@ -842,8 +882,10 @@ class DataFrameInfo:
         IQR = Q3 - Q1
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
-        outliers = self.dataframe[(self.dataframe[column] < lower_bound) |
-                                  (self.dataframe[column] > upper_bound)]
+        outliers = self.dataframe[
+            (self.dataframe[column] < lower_bound)
+            | (self.dataframe[column] > upper_bound)
+        ]
         return outliers
 
 
@@ -877,8 +919,9 @@ class DataFrameTransform:
         # Replace target column with imputed values & round to 1 decimal point
         self.dataframe[target_column] = np.round(imputed_data[:, -1], 1)
 
-        print(f"\nKNN imputation applied to {target_column}"
-              f"using {correlated_columns}")
+        print(
+            f"\nKNN imputation applied to {target_column}" f"using {correlated_columns}"
+        )
 
     def impute_missing_values(self, strategies=None, knn_columns=None):
         """
@@ -903,23 +946,22 @@ class DataFrameTransform:
 
         # Default to median strategy if none is provided
         if strategies is None:
-            strategies = {col: 'median' for col in numeric_columns_with_nulls}
+            strategies = {col: "median" for col in numeric_columns_with_nulls}
 
         # Iterate through the provided strategies
         for column, strategy in strategies.items():
             if column in numeric_columns_with_nulls:
-                if strategy == 'mean':
+                if strategy == "mean":
                     # Impute using the mean
                     self.dataframe[column].fillna(
                         round(self.dataframe[column].mean(), 1), inplace=True
                     )
-                elif strategy == 'median':
+                elif strategy == "median":
                     # Impute using the median
                     self.dataframe[column].fillna(
                         round(self.dataframe[column].median(), 1), inplace=True
                     )
-                elif (strategy == 'knn' and knn_columns
-                        and column in knn_columns):
+                elif strategy == "knn" and knn_columns and column in knn_columns:
                     # Apply KNN imputation for the specified column
                     self.knn_impute(column, knn_columns[column])
 
@@ -937,7 +979,7 @@ class DataFrameTransform:
         # Update the DataFrame with the transformed values
         self.dataframe[column] = transformed_column
 
-        print(f'Yeo-Johnson transformation applied to {column}')
+        print(f"Yeo-Johnson transformation applied to {column}")
 
     def preview_transformations(self, column: str):
         """
@@ -966,21 +1008,21 @@ class DataFrameTransform:
         plt.figure(figsize=(15, 5))
 
         plt.subplot(1, 3, 1)
-        plt.hist(log_transformed, bins=30, color='blue')
-        plt.title(f'Log Transform (Skew: {log_skew:.2f})')
+        plt.hist(log_transformed, bins=30, color="blue")
+        plt.title(f"Log Transform (Skew: {log_skew:.2f})")
 
         plt.subplot(1, 3, 2)
-        plt.hist(boxcox_transformed, bins=30, color='green')
-        plt.title(f'Box-Cox Transform (Skew: {boxcox_skew:.2f})')
+        plt.hist(boxcox_transformed, bins=30, color="green")
+        plt.title(f"Box-Cox Transform (Skew: {boxcox_skew:.2f})")
 
         plt.subplot(1, 3, 3)
-        plt.hist(yeo_transformed, bins=30, color='red')
-        plt.title(f'Yeo-Johnson Transform (Skew: {yeo_skew:.2f})')
+        plt.hist(yeo_transformed, bins=30, color="red")
+        plt.title(f"Yeo-Johnson Transform (Skew: {yeo_skew:.2f})")
 
-        plt.suptitle(f'Preview transformations of {column}')
+        plt.suptitle(f"Preview transformations of {column}")
         plt.show()
 
-    def save_transformed_data(self, filename: str = 'transformed_data.csv'):
+    def save_transformed_data(self, filename: str = "transformed_data.csv"):
         # TODO: Is this method necessary?
         """Save the transformed DataFrame to a new CSV file."""
         save_data_to_csv(self.dataframe, filename)
@@ -1000,7 +1042,7 @@ class DataFrameTransform:
         # Ensure only valid columns are dropped
         valid_columns = [
             col for col in columns_to_drop if col in self.dataframe.columns
-            ]
+        ]
 
         if not valid_columns:
             print("\nNo valid columns to drop.")
@@ -1027,10 +1069,12 @@ class EDAExecutor:
         """Fetch data from database and save it to CSV."""
         data = self.db_connector.fetch_data(query)
         if not data.empty:
-            csv_filename = 'failure_data.csv'
+            csv_filename = "failure_data.csv"
             save_data_to_csv(data, csv_filename)
-            print("\nData successfully retrieved from database",
-                  f"and saved to '{csv_filename}'.")
+            print(
+                "\nData successfully retrieved from database",
+                f"and saved to '{csv_filename}'.",
+            )
         return data
 
     def reformat_data(self, data):
@@ -1047,13 +1091,13 @@ class EDAExecutor:
         transformer = DataTransform(data)
 
         # Convert 'Type' column to categorical
-        transformer.convert_to_categorical('Type')
+        transformer.convert_to_categorical("Type")
 
         # Convert failure columns to boolean
-        for col in ['Machine failure', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']:
+        for col in ["Machine failure", "TWF", "HDF", "PWF", "OSF", "RNF"]:
             transformer.convert_to_boolean(col)
 
-        print('\nReformatting of data complete..')
+        print("\nReformatting of data complete..")
 
         return data  # Return the transformed data
 
@@ -1063,20 +1107,24 @@ class EDAExecutor:
         df_info = DataFrameInfo(data)
 
         # List which columns to exclude
-        extract_stats_exclude = ['UDI']
-        count_distinct_exclude = ['Product ID']
+        extract_stats_exclude = ["UDI"]
+        count_distinct_exclude = ["Product ID"]
 
         # Print statistics
         print("\nColumn Descriptions:\n", df_info.describe_columns())
-        print("\nExtracted Statistics:\n",
-              df_info.extract_stats(exclude_columns=extract_stats_exclude))
+        print(
+            "\nExtracted Statistics:\n",
+            df_info.extract_stats(exclude_columns=extract_stats_exclude),
+        )
 
-        print("\nDistinct Value Counts:\n", df_info.count_distinct_values(
-            exclude_columns=count_distinct_exclude))
+        print(
+            "\nDistinct Value Counts:\n",
+            df_info.count_distinct_values(exclude_columns=count_distinct_exclude),
+        )
         df_info.print_shape()
         print("\nNull Value Counts:\n", df_info.count_null_values())
 
-        print('\nexploration of stats complete..')
+        print("\nexploration of stats complete..")
 
     def visualise_data(self, data):
         """Generate visualisations for data."""
@@ -1085,26 +1133,27 @@ class EDAExecutor:
 
         # Data selections
         scatter_plot_column_pairs = [
-            ('Air temperature [K]', 'Process temperature [K]'),
-            ('Rotational speed [rpm]', 'Torque [Nm]'),
-            ('Tool wear [min]', 'Rotational speed [rpm]'),
-            ('Tool wear [min]', 'Process temperature [K]'),
+            ("Air temperature [K]", "Process temperature [K]"),
+            ("Rotational speed [rpm]", "Torque [Nm]"),
+            ("Tool wear [min]", "Rotational speed [rpm]"),
+            ("Tool wear [min]", "Process temperature [K]"),
         ]
 
         # Call plots
         plotter.scatter_multiple_plots(scatter_plot_column_pairs)
-        plotter.plot_histograms(exclude_columns='UDI')
-        plotter.plot_bar_plots(exclude_columns='Product ID')
+        plotter.plot_histograms(exclude_columns="UDI")
+        plotter.plot_bar_plots(exclude_columns="Product ID")
         plotter.correlation_heatmap()
         plotter.missing_data_matrix()
         # TODO: boxplots missing axis titles
-        plotter.plot_boxplots(exclude_columns='UDI')
-        plotter.plot_skewness(exclude_columns='UDI')
-        plotter.plot_qq(exclude_columns='UDI')
-        print('\nVisualisation complete..')
+        plotter.plot_boxplots(exclude_columns="UDI")
+        plotter.plot_skewness(exclude_columns="UDI")
+        plotter.plot_qq(exclude_columns="UDI")
+        print("\nVisualisation complete..")
 
-    def run_imputation_and_null_visualisation(self, data, knn_columns=None,
-                                              visualisations_on=True):
+    def run_imputation_and_null_visualisation(
+        self, data, knn_columns=None, visualisations_on=True
+    ):
         """Handle null imputation and optionally
         visualise null count comparison."""
         # TODO: keep knn_columns param?
@@ -1114,35 +1163,32 @@ class EDAExecutor:
 
         # Specify imputation strategy
         imputation_strategy = {
-            'Air temperature [K]': 'mean',
-            'Process temperature [K]': 'knn',
-            'Tool wear [min]': 'median'
+            "Air temperature [K]": "mean",
+            "Process temperature [K]": "knn",
+            "Tool wear [min]": "median",
         }
 
         # Define the columns for KNN imputation
-        knn_cols = {
-            'Process temperature [K]': ['Air temperature [K]']
-        }
+        knn_cols = {"Process temperature [K]": ["Air temperature [K]"]}
 
         # Null count before and after imputation
         initial_null_count = df_info.count_null_values()
 
         # Pass the strategy and KNN columns to impute_missing_values
-        df_transform.impute_missing_values(strategies=imputation_strategy,
-                                           knn_columns=knn_cols)
+        df_transform.impute_missing_values(
+            strategies=imputation_strategy, knn_columns=knn_cols
+        )
 
         null_count_after_impute = df_info.count_null_values()
         print("\nPost impute null value counts:\n", null_count_after_impute)
 
         # Visualise null count comparison (if visualisation flag is True)
         if visualisations_on:
-            plotter.plot_null_comparison(initial_null_count,
-                                         null_count_after_impute)
+            plotter.plot_null_comparison(initial_null_count, null_count_after_impute)
 
-        print('\nRun null imputation complete..')
+        print("\nRun null imputation complete..")
 
-    def handle_skewness_and_transformations(self, data,
-                                            visualisations_on=True):
+    def handle_skewness_and_transformations(self, data, visualisations_on=True):
         """Handle skewness detection and transformation of columns."""
         df_transform = DataFrameTransform(data)
         plotter = Plotter(data)
@@ -1153,27 +1199,28 @@ class EDAExecutor:
 
         # Preview and visualise transformation (if visualisation flag is True)
         if visualisations_on:
-            df_transform.preview_transformations('Rotational speed [rpm]')
+            df_transform.preview_transformations("Rotational speed [rpm]")
 
         # Retrieve 'Rotational speed [rpm]' column from pre-transform data
-        original_data = self.pre_transform_data['Rotational speed [rpm]']
+        original_data = self.pre_transform_data["Rotational speed [rpm]"]
 
         # Perform Yeo-Johnson transformation on 'Rotational speed [rpm]'
         yeo_transformed_data, _ = stats.yeojohnson(
-            df_transform.dataframe['Rotational speed [rpm]'])
+            df_transform.dataframe["Rotational speed [rpm]"]
+        )
 
         # Update the dataframe with the transformed data
-        df_transform.dataframe['Rotational speed [rpm]'] = yeo_transformed_data
+        df_transform.dataframe["Rotational speed [rpm]"] = yeo_transformed_data
 
         # Visualise transformation (if visualisation flag is True)
         if visualisations_on:
             plotter.visualise_transformed_column(
-                column='Rotational speed [rpm]',
+                column="Rotational speed [rpm]",
                 original=original_data,
-                transformed=yeo_transformed_data
+                transformed=yeo_transformed_data,
             )
 
-        print('\nRun_skewness_transformations complete..')
+        print("\nRun_skewness_transformations complete..")
 
     def handle_outlier_detection(self, data):
         """Detect and handle outliers in the data."""
@@ -1181,33 +1228,38 @@ class EDAExecutor:
         plotter = Plotter(data)
         # TODO: Only detects outliers in 'Rotational speed [rpm]
         print("\nDetecting Z-score Outliers:")
-        zscore_outliers = df_info.detect_outliers_zscore(
-            'Rotational speed [rpm]')
+        zscore_outliers = df_info.detect_outliers_zscore("Rotational speed [rpm]")
         print(zscore_outliers)
 
         print("\nDetecting IQR Outliers:")
-        iqr_outliers = df_info.detect_outliers_iqr('Rotational speed [rpm]')
+        iqr_outliers = df_info.detect_outliers_iqr("Rotational speed [rpm]")
         print(iqr_outliers)
 
         # Visualise outliers
-        plotter.scatter_multiple_plots([
-            ('Air temperature [K]', 'Process temperature [K]'),
-            ('Rotational speed [rpm]', 'Torque [Nm]'),
-            ('Tool wear [min]', 'Rotational speed [rpm]')
-        ])
-        plotter.plot_boxplots(exclude_columns='UDI')
+        plotter.scatter_multiple_plots(
+            [
+                ("Air temperature [K]", "Process temperature [K]"),
+                ("Rotational speed [rpm]", "Torque [Nm]"),
+                ("Tool wear [min]", "Rotational speed [rpm]"),
+            ]
+        )
+        plotter.plot_boxplots(exclude_columns="UDI")
 
-        print('Outlier detection complete..')
+        print("Outlier detection complete..")
 
     # -- Further Analysis --
 
     # Task 1: Operating Ranges Analysis
     def analyse_operating_ranges(self, data):
+        # TODO: Generate table(s) for operating ranges for better readability
         """Analyse and display operating ranges across product types."""
         plotter = Plotter(data)
         selected_columns = [
-            'Air temperature [K]', 'Process temperature [K]',
-            'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]'
+            "Air temperature [K]",
+            "Process temperature [K]",
+            "Rotational speed [rpm]",
+            "Torque [Nm]",
+            "Tool wear [min]",
         ]
 
         # Ensure pre_transform_data is available
@@ -1219,52 +1271,37 @@ class EDAExecutor:
         df_info = DataFrameInfo(self.pre_transform_data)
         overall_ranges = df_info.describe_columns(
             include_columns=selected_columns,
-            stats_to_return=['min', '25%', '75%', 'max', 'mean']
+            stats_to_return=["min", "25%", "75%", "max", "mean"],
         )
         print(overall_ranges)
 
         # Loop through each product quality type and display the stats
-        for product_type in ['L', 'M', 'H']:
+        for product_type in ["L", "M", "H"]:
             print(f"\nOperating Ranges for Product Type: {product_type}")
 
             filtered_data = self.pre_transform_data[
-                self.pre_transform_data['Type'] == product_type]
+                self.pre_transform_data["Type"] == product_type
+            ]
 
             df_info_filtered = DataFrameInfo(filtered_data)
 
             type_specific_ranges = df_info_filtered.describe_columns(
                 include_columns=selected_columns,
-                stats_to_return=['min', '25%', '75%', 'max', 'mean']
+                stats_to_return=["min", "25%", "75%", "max", "mean"],
             )
             print(type_specific_ranges)
 
         plotter.plot_tool_wear_distribution()
-        plotter.plot_tool_wear_by_quality()
 
     # Task 2: Failures Analysis
     def analyse_failures(self, data):
         """Analyse failures by product quality and failure type."""
         plotter = Plotter(data)
 
-        machine_settings = ['Torque [Nm]', 'Process temperature [K]',
-                            'Rotational speed [rpm]', 'Air temperature [K]',
-                            'Tool wear [min]']
-        failure_types = ['Machine failure', 'HDF', 'PWF', 'OSF', 'TWF']
-
         plotter.calculate_failure_rate()
         plotter.failures_by_product_quality()
         plotter.leading_causes_of_failure()
         plotter.failure_causes_by_product_quality()
-        plotter.failure_rate_analysis(
-            dataframe=self.pre_transform_data,
-            selected_column=machine_settings,
-            target_column=failure_types
-            )
-        plotter.plot_violin_plots(
-            dataframe=self.pre_transform_data,
-            columns=machine_settings,
-            x_column='Type'
-            )
 
     # Task 3: Deeper Understanding of Failures
     def analyse_failure_risk_factors(self, data):
@@ -1283,27 +1320,47 @@ class EDAExecutor:
 
         # For failure risk factors with failure comparison
         # Boxplots of failure type vs setting value
-        fail_type = ['Machine failure', 'HDF', 'OSF', 'PWF']
-        columns_to_plot = ['Torque [Nm]', 'Process temperature [K]',
-                           'Rotational speed [rpm]', 'Air temperature [K]',
-                           'Tool wear [min]']
-        for fail_type in fail_type:
-            plotter.plot_boxplots(dataframe=self.pre_transform_data,
-                                  columns=columns_to_plot,
-                                  x_column=fail_type)
-
-        # Boxplot to compare 'L' product type against the rest
-        plotter.plot_boxplots(
-            columns=columns_to_plot,
-            x_column='Type'
-        )
+        failure_types = ["Machine failure", "HDF", "PWF", "OSF", "TWF"]
+        machine_settings = [
+            "Torque [Nm]",
+            "Process temperature [K]",
+            "Rotational speed [rpm]",
+            "Air temperature [K]",
+            "Tool wear [min]",
+        ]
 
         # Generate correlation heatmap including failure types
         plotter.correlation_heatmap(include_booleans=True)
 
+        plotter.failure_rate_analysis(
+            dataframe=self.pre_transform_data,
+            selected_column=machine_settings,
+            target_column=failure_types,
+        )
+
+        plotter.plot_violin_plots(
+            dataframe=self.pre_transform_data, columns=machine_settings, x_column="Type"
+        )
+
+        for failure_types in failure_types:
+            plotter.plot_boxplots(
+                dataframe=self.pre_transform_data,
+                columns=machine_settings,
+                x_column=failure_types,
+            )
+
+        # Wrong comment description below
+        # Boxplot to compare 'L' product type against the rest
+        plotter.plot_boxplots(
+            dataframe=self.pre_transform_data, columns=machine_settings, x_column="Type"
+        )
+
         selected_columns = [
-            'Air temperature [K]', 'Process temperature [K]',
-            'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]'
+            "Air temperature [K]",
+            "Process temperature [K]",
+            "Rotational speed [rpm]",
+            "Torque [Nm]",
+            "Tool wear [min]",
         ]
 
         # Ensure pre_transform_data is available
@@ -1311,13 +1368,14 @@ class EDAExecutor:
             raise ValueError("Pre-transformation data is not available.")
 
         # Loop through chosen failure type's and True/False statuses
-        for failure_type in ['HDF', 'OSF', 'PWF']:
+        for failure_type in ["HDF", "OSF", "PWF"]:
             for failure_status in [True, False]:
                 print(f"\nOperating Ranges for {failure_type} = {failure_status}")
 
                 # Filter the pre-transform data based on the failure status
                 filtered_data = self.pre_transform_data[
-                    self.pre_transform_data[failure_type] == failure_status]
+                    self.pre_transform_data[failure_type] == failure_status
+                ]
 
                 # Create a DataFrameInfo object for the filtered data
                 df_info_filtered = DataFrameInfo(filtered_data)
@@ -1325,7 +1383,7 @@ class EDAExecutor:
                 # Call the describe_columns method for the filtered dataset
                 failure_specific_ranges = df_info_filtered.describe_columns(
                     include_columns=selected_columns,
-                    stats_to_return=['min', '25%', '75%', 'max', 'mean']
+                    stats_to_return=["min", "25%", "75%", "max", "mean"],
                 )
                 print(failure_specific_ranges)
 
@@ -1353,16 +1411,14 @@ if __name__ == "__main__":
     run_further_analysis = True  # Carry out more in-depth analysis
 
     # Load database credentials and connect
-    credentials = load_db_credentials('credentials.yaml')
+    credentials = load_db_credentials("credentials.yaml")
     db_connector = RDSDatabaseConnector(credentials)
 
     # Create an instance of EDAExecutor & df transform
     eda_executor = EDAExecutor(db_connector)
 
     # Fetch and save data
-    data = eda_executor.fetch_and_save_data(
-        query="SELECT * FROM failure_data;"
-    )
+    data = eda_executor.fetch_and_save_data(query="SELECT * FROM failure_data;")
 
     # Create an instance of df transform
     df_transform = DataFrameTransform(data)
@@ -1386,14 +1442,14 @@ if __name__ == "__main__":
             # Perform null imputation/removal and visualise the result
             eda_executor.run_imputation_and_null_visualisation(
                 data, visualisations_on=False  # visualisations on/off
-                )
+            )
             # input("\nPress Enter to continue...")
 
         if run_skewness_transformations:
             # Skewness and transformations
             eda_executor.handle_skewness_and_transformations(
                 data, visualisations_on=False  # visualisations on/off
-                )
+            )
             # input("\nPress Enter to continue...")
 
         if run_outlier_detection:
@@ -1403,14 +1459,14 @@ if __name__ == "__main__":
 
         if run_drop_columns:
             # Drop columns after analysis (if applicable)
-            columns_to_drop = ['Air temperature [K]', 'Rotational speed [rpm]']
+            columns_to_drop = ["Air temperature [K]", "Rotational speed [rpm]"]
             df_transform.drop_columns(columns_to_drop)
             # input("\nPress Enter to continue...")
 
         if run_save_data:
             # Save the transformed data
-            df_transform.save_transformed_data('transformed_failure_data.csv')
-            save_data_to_csv(eda_executor.pre_transform_data, 'pre_transform_data.csv')
+            df_transform.save_transformed_data("transformed_failure_data.csv")
+            save_data_to_csv(eda_executor.pre_transform_data, "pre_transform_data.csv")
             # input("\nPress Enter to continue...")
 
         if run_further_analysis:
