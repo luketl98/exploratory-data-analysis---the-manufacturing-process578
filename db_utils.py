@@ -1387,12 +1387,59 @@ class EDAExecutor:
                 )
                 print(failure_specific_ranges)
 
+    def calculate_sessions_above_below(self, data, column, threshold):
+        """
+        Calculate the number and percentage of sessions above and below a given threshold for a specified column.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame containing the data.
+            column (str): The column to analyze.
+            threshold (float): The threshold value to compare against.
+
+        Returns:
+            dict: A dictionary containing the number and percentage of sessions above and below the threshold.
+        """
+        total_sessions = len(data)
+        sessions_above = data[data[column] > threshold].shape[0]
+        sessions_below = data[data[column] < threshold].shape[0]
+
+        percentage_above = (sessions_above / total_sessions) * 100
+        percentage_below = (sessions_below / total_sessions) * 100
+
+        return {
+            "total_sessions": total_sessions,
+            "sessions_above": sessions_above,
+            "sessions_below": sessions_below,
+            "percentage_above": percentage_above,
+            "percentage_below": percentage_below,
+        }
+
     # Further_analysis umbrella method
     def further_analysis(self, data):
         """Conduct further analysis by calling task-specific methods."""
         self.analyse_operating_ranges(data)
         self.analyse_failures(data)
         self.analyse_failure_risk_factors(data)
+
+        # Call calculate_sessions_above_below for each machine setting
+        machine_settings = [
+            "Torque [Nm]",
+            "Rotational speed [rpm]",
+            "Tool wear [min]",
+            "Process temperature [K]",
+            "Air temperature [K]",
+        ]
+
+        while True:
+            threshold = float(input("Enter a threshold value: "))
+            for setting in machine_settings:
+                result = self.calculate_sessions_above_below(data, setting, threshold)
+                print(f"\nAnalysis for {setting} with threshold {threshold}:")
+                print(result)
+
+            continue_analysis = input("Do you want to enter a new threshold? (yes/no): ")
+            if continue_analysis.lower() != "yes":
+                break
 
 
 if __name__ == "__main__":

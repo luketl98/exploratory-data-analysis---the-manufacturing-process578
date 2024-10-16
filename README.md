@@ -15,7 +15,32 @@ This project is designed to optimise a manufacturing machine process to increase
 2. Install required Python packages: pip install -r requirements.txt --- #TODO ADD requirements here?
 
 ## Usage instructions 
-#TODO Add usage instructions here once complete
+To use the new feature for inputting min. or max. values for machine settings and calculating the number and percentage of sessions above and below that value, follow these steps:
+
+1. Ensure you have the necessary data loaded into the DataFrame.
+2. Create an instance of the `EDAExecutor` class.
+3. Call the `calculate_sessions_above_below` method with the appropriate parameters.
+
+Example usage:
+```python
+from db_utils import EDAExecutor, load_db_credentials, RDSDatabaseConnector
+
+# Load database credentials and connect
+credentials = load_db_credentials("credentials.yaml")
+db_connector = RDSDatabaseConnector(credentials)
+
+# Create an instance of EDAExecutor
+eda_executor = EDAExecutor(db_connector)
+
+# Fetch and save data
+data = eda_executor.fetch_and_save_data(query="SELECT * FROM failure_data;")
+
+# Calculate sessions above and below a threshold for a specific column
+result = eda_executor.calculate_sessions_above_below(data, column="Torque [Nm]", threshold=50)
+
+# Print the result
+print(result)
+```
 
 ## File Structure
 - `db_utils.py` - Contains functions to connect to the database and perform data analysis.
