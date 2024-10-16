@@ -43,8 +43,21 @@ def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
 
 
 def filter_columns(dataframe: pd.DataFrame, dtype, exclude_columns=None):
-    """Helper method to select DataFrame columns by dtype
-    and select columns to drop."""
+    """
+    Helper method to select DataFrame columns by data type and
+    filter out specified columns.
+
+    Parameters:
+        dataframe (pd.DataFrame): The DataFrame containing the data.
+        dtype (str or type): The data type to filter
+                             columns by (e.g., 'number', 'object').
+        exclude_columns (list, optional): A list of column names to
+                                          exclude from the selection.
+
+    Returns:
+        list: A list of column names that match the specified data type,
+              excluding those in `exclude_columns`.
+    """
     if exclude_columns is None:
         exclude_columns = []
     return [
@@ -61,6 +74,13 @@ def save_data_to_csv(data_frame: pd.DataFrame, filename: str):
     Parameters:
         data_frame (pd.DataFrame): The DataFrame to save.
         filename (str): The filename to save the CSV file.
+
+    Returns:
+        None
+
+    Raises:
+        IOError: If an I/O error occurs while saving the file.
+        Exception: If an unexpected error occurs.
     """
     try:
         data_frame.to_csv(filename, index=False)
@@ -73,7 +93,47 @@ def save_data_to_csv(data_frame: pd.DataFrame, filename: str):
 
 # Class to handle database connections and operations
 class RDSDatabaseConnector:
+    """
+    A class to handle database connections and operations for an Amazon RDS instance.
+
+    This class is responsible for connecting to a relational database using SQLAlchemy
+    and fetching data using provided SQL queries.
+
+    Attributes:
+        engine (sqlalchemy.engine.Engine): The SQLAlchemy engine used to connect to
+                                           the RDS database.
+
+    Example Usage:
+        credentials = {
+            "RDS_USER": "your_username",
+            "RDS_PASSWORD": "your_password",
+            "RDS_HOST": "your_host",
+            "RDS_PORT": "1234",
+            "RDS_DATABASE": "your_database"
+        }
+        connector = RDSDatabaseConnector(credentials)
+        df = connector.fetch_data("SELECT * FROM table_name")
+        connector.close_connection()
+    """
+
     def __init__(self, credentials):
+        """
+        Initialize the RDSDatabaseConnector with database credentials.
+
+        Parameters:
+            credentials (dict): A dictionary containing the database
+                                connection credentials.
+                - 'RDS_USER': Username for the RDS database.
+                - 'RDS_PASSWORD': Password for the RDS database.
+                - 'RDS_HOST': Host address for the RDS database.
+                - 'RDS_PORT': Port number for the RDS database.
+                - 'RDS_DATABASE': The database name to connect to.
+
+        Returns:
+            None
+        """
+
+        # Create the SQLAlchemy engine to connect to the database
         self.engine = create_engine(
             f"postgresql://{credentials['RDS_USER']}:"
             f"{credentials['RDS_PASSWORD']}@"
@@ -83,43 +143,112 @@ class RDSDatabaseConnector:
 
     def fetch_data(self, query: str) -> pd.DataFrame:
         """
-        Fetches data from the database by executing the given SQL query.
+        Fetch data from the database by executing the provided SQL query.
 
         Parameters:
             query (str): The SQL query to execute.
 
         Returns:
             pd.DataFrame: A DataFrame containing the query results.
+
+        Raises:
+            SQLAlchemyError: If an error occurs while executing the SQL query.
+            Exception: For any other unexpected errors.
         """
         try:
+            # Establish a connection to execute the SQL query
             with self.engine.connect() as connection:
                 result = pd.read_sql(query, connection)
             return result
-        # error handling:
         except SQLAlchemyError as e:
+            # Handle SQLAlchemy-specific errors, print the error,
+            # and return an empty DataFrame.
             print(f"An error occurred while executing the query: {e}")
-            return pd.DataFrame()  # Return empty df if sql error occurs
+            return pd.DataFrame()
         except Exception as e:
+            # Handle any other unexpected errors, print the error,
+            # and return an empty DataFrame.
             print(f"An unexpected error occurred: {e}")
-            return pd.DataFrame()  # Return empty df for other exceptions
+            return pd.DataFrame()
 
     def close_connection(self):
-        # Closes the database connection
+        """
+        Close the database connection by disposing of the SQLAlchemy engine.
+
+        This method should be called to clean up the connection after all
+        operations are completed.
+
+        Returns:
+            None
+        """
+        # Dispose of the engine to release any resources held by the connection
         self.engine.dispose()
 
 
 class DataTransform:
-    """Class to transform specific data as needed"""
+    """
+    A utility class for transforming data within a DataFrame.
+
+    This class provides methods to convert columns in the DataFrame into different
+    data types, such as categorical or boolean.
+
+    Attributes:
+        dataframe (pd.DataFrame): The DataFrame containing the data to be transformed.
+
+    Example Usage:
+        transformer = DataTransform(dataframe)
+        transformer.convert_to_categorical('column_name')
+        transformer.convert_to_boolean('another_column')
+    """
 
     def __init__(self, dataframe: pd.DataFrame):
+        """
+        Initialize the DataTransform class with a DataFrame.
+
+        Parameters:
+            dataframe (pd.DataFrame): The DataFrame to be transformed.
+        """
         self.dataframe = dataframe
 
     def convert_to_categorical(self, column_name: str):
-        """Convert the specified column to a categorical data type."""
+        """
+        Convert the specified column to a categorical data type.
+
+        Parameters:
+            column_name (str): The name of the column to convert to categorical.
+
+        Returns:
+            None
+
+        Modifies:
+            Converts the specified column to a categorical data type,
+            allowing for memory efficiency and potential optimization
+            for certain types of analyses.
+
+        Example:
+            transformer.convert_to_categorical('product_type')
+        """
+        # Converting the specified column to categorical type
         self.dataframe[column_name] = self.dataframe[column_name].astype("category")
 
     def convert_to_boolean(self, column_name: str):
-        """Convert the specified column to a boolean data type."""
+        """
+        Convert the specified column to a boolean data type.
+
+        Parameters:
+            column_name (str): The name of the column to convert to boolean.
+
+        Returns:
+            None
+
+        Modifies:
+            Converts the specified column to a boolean data type, useful when working
+            with binary indicators.
+
+        Example:
+            transformer.convert_to_boolean('is_active')
+        """
+        # Converting the specified column to boolean type
         self.dataframe[column_name] = self.dataframe[column_name].astype(bool)
 
 
@@ -659,8 +788,8 @@ class Plotter:
 
         Parameters:
             dataframe (pd.DataFrame): The DataFrame containing the data.
-            selected_column (list): List of machine setting columns (e.g., ['Torque [Nm]', 'Rotational speed [rpm]']).
-            target_column (list): List of failure type columns (e.g., ['Machine failure', 'HDF']).
+            selected_column (list): List of machine setting columns.
+            target_column (list): List of failure type columns.
             group_column (str, optional): The column to group by (e.g., 'Type').
         """
         num_plots = len(selected_column)
@@ -673,7 +802,7 @@ class Plotter:
             # Calculate bin width using the auto_bin_width method
             bin_width = self.auto_bin_width(dataframe[setting])
 
-            # Creating bins with the calculated width starting from the minimum value of the data
+            # Creates bins with calculated width starting from the min. value of data
             min_value = dataframe[setting].min()
             dataframe["Selected Bin"] = pd.cut(
                 dataframe[setting],
@@ -689,7 +818,8 @@ class Plotter:
                 right=False,  # Ensures the bins are left-closed, right-open
             )
 
-            # Group by 'Selected Bin' and 'target_column' and calculate failure rate for each type
+            # Group by 'Selected Bin' & 'target_column' & calculates
+            # failure rate for each type.
             grouped = dataframe.groupby(["Selected Bin"])[target_column].agg(
                 ["sum", "size"]
             )
@@ -1271,7 +1401,7 @@ class EDAExecutor:
         df_info = DataFrameInfo(self.pre_transform_data)
         overall_ranges = df_info.describe_columns(
             include_columns=selected_columns,
-            stats_to_return=["min", "25%", "75%", "max", "mean"],
+            stats_to_return=["min", "max", "25%", "75%", "mean"],
         )
         print(overall_ranges)
 
@@ -1287,7 +1417,7 @@ class EDAExecutor:
 
             type_specific_ranges = df_info_filtered.describe_columns(
                 include_columns=selected_columns,
-                stats_to_return=["min", "25%", "75%", "max", "mean"],
+                stats_to_return=["min", "max", "25%", "75%", "mean"],
             )
             print(type_specific_ranges)
 
@@ -1342,33 +1472,29 @@ class EDAExecutor:
             dataframe=self.pre_transform_data, columns=machine_settings, x_column="Type"
         )
 
+        """
+        # Creates windows for each failure type, each with 5 boxplots,
+        # one for each machine setting.
+
         for failure_types in failure_types:
             plotter.plot_boxplots(
                 dataframe=self.pre_transform_data,
                 columns=machine_settings,
                 x_column=failure_types,
             )
+        """
 
-        # Wrong comment description below
-        # Boxplot to compare 'L' product type against the rest
+        # Boxplots for mcahine settings by product quality ('Type')
         plotter.plot_boxplots(
             dataframe=self.pre_transform_data, columns=machine_settings, x_column="Type"
         )
-
-        selected_columns = [
-            "Air temperature [K]",
-            "Process temperature [K]",
-            "Rotational speed [rpm]",
-            "Torque [Nm]",
-            "Tool wear [min]",
-        ]
 
         # Ensure pre_transform_data is available
         if self.pre_transform_data is None:
             raise ValueError("Pre-transformation data is not available.")
 
         # Loop through chosen failure type's and True/False statuses
-        for failure_type in ["HDF", "OSF", "PWF"]:
+        for failure_type in ["Machine failure", "HDF", "OSF", "PWF"]:
             for failure_status in [True, False]:
                 print(f"\nOperating Ranges for {failure_type} = {failure_status}")
 
@@ -1382,8 +1508,8 @@ class EDAExecutor:
 
                 # Call the describe_columns method for the filtered dataset
                 failure_specific_ranges = df_info_filtered.describe_columns(
-                    include_columns=selected_columns,
-                    stats_to_return=["min", "25%", "75%", "max", "mean"],
+                    include_columns=machine_settings,
+                    stats_to_return=["min", "max", "25%", "75%", "mean"],
                 )
                 print(failure_specific_ranges)
 
