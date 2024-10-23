@@ -1190,7 +1190,7 @@ class MachineSettingCalculator:
             else:
                 print("\nInvalid input. Please enter 'yes' or 'no'.")
 
-    def run_analysis(self):
+    def run_machine_setting_calculator(self):
         """Run the machine setting analysis process."""
         machine_settings = self.initialise_machine_settings()
         table = self.initialise_table(machine_settings)
@@ -1546,7 +1546,7 @@ class EDAExecutor:
     def further_analysis(self, data):
         """Conduct further analysis by calling task-specific methods."""
         calculator = MachineSettingCalculator(self.pre_transform_data)
-        calculator.run_analysis()
+        calculator.run_machine_setting_calculator()
 
 
 if __name__ == "__main__":
