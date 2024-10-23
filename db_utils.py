@@ -1056,6 +1056,161 @@ class DataFrameTransform:
         return self.dataframe
 
 
+class MachineSettingCalculator:
+    """Class to handle machine setting calculations and analysis."""
+
+    def __init__(self, pre_transform_data):
+        self.pre_transform_data = pre_transform_data
+
+    def calculate_setting_limit(self, data, column, min_value=None, max_value=None):
+        """
+        Calculate the number and percentage of sessions above and below given
+        min and max thresholds for a specified machine setting column.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame containing the data.
+            column (str): The column to analyse.
+            min_value (float, optional): The minimum threshold value.
+            max_value (float, optional): The maximum threshold value.
+
+        Returns:
+            dict: A dictionary containing the calculated statistics.
+        """
+        total_sessions = len(data)
+        total_failed_sessions = data[data["Machine failure"] == True].shape[0]
+        sessions_missed_min = data[data[column] < min_value].shape[0] if min_value is not None else 0
+        sessions_missed_max = data[data[column] > max_value].shape[0] if max_value is not None else 0
+
+        percentage_missed_min = (sessions_missed_min / total_sessions) * 100 if min_value is not None else 0
+        percentage_missed_max = (sessions_missed_max / total_sessions) * 100 if max_value is not None else 0
+
+        failed_sessions_min = data[
+            (data[column] < min_value) & data["Machine failure"]
+        ].shape[0] if min_value is not None else 0
+
+        failed_sessions_max = data[
+            (data[column] > max_value) & data["Machine failure"]
+        ].shape[0] if max_value is not None else 0
+
+        percentage_failed_sessions_min = (failed_sessions_min / total_failed_sessions) * 100 if min_value is not None else 0
+        percentage_failed_sessions_max = (failed_sessions_max / total_failed_sessions) * 100 if max_value is not None else 0
+
+        return {
+            "min": min_value,
+            "max": max_value,
+            "sessions_missed_min": sessions_missed_min,
+            "percentage_missed_min": percentage_missed_min,
+            "sessions_missed_max": sessions_missed_max,
+            "percentage_missed_max": percentage_missed_max,
+            "failed_sessions_min": failed_sessions_min,
+            "failed_sessions_max": failed_sessions_max,
+            "percentage_failed_sessions_min": percentage_failed_sessions_min,
+            "percentage_failed_sessions_max": percentage_failed_sessions_max,
+        }
+
+    def initialise_machine_settings(self):
+        """Initialise machine settings with min and max values set to None."""
+        return {
+            "a": "Torque [Nm]",
+            "b": "Rotational speed [rpm]",
+            "c": "Tool wear [min]",
+            "d": "Process temperature [K]",
+            "e": "Air temperature [K]",
+        }
+
+    def initialise_table(self, machine_settings):
+        """Initialise a table with min and max values set to None for each setting."""
+        return {setting: {"min": None, "max": None} for setting in machine_settings.values()}
+
+    def display_table(self, table):
+        """Display the table with calculated statistics."""
+        table_data = []
+        for setting, values in table.items():
+            stats = self.calculate_setting_limit(self.pre_transform_data, setting, values["min"], values["max"])
+
+            table_data.append([
+                setting,
+                f"Min: {values['min']}" if values["min"] is not None else "N/A",
+                stats['sessions_missed_min'],
+                f"{stats['percentage_missed_min']:.2f}",
+                stats['failed_sessions_min'],
+                f"{stats['percentage_failed_sessions_min']:.2f}"
+            ])
+
+            table_data.append([
+                "",
+                f"Max: {values['max']}" if values["max"] is not None else "N/A",
+                stats['sessions_missed_max'],
+                f"{stats['percentage_missed_max']:.2f}",
+                stats['failed_sessions_max'],
+                f"{stats['percentage_failed_sessions_max']:.2f}"
+            ])
+
+        headers = [
+            "Setting",
+            "Min / Max",
+            "Sessions\nMissed",
+            "% Missed",
+            "Failed Sessions\nAvoided",
+            "% Failed\nAvoided"
+        ]
+        print(tabulate(table_data, headers=headers, tablefmt="grid", floatfmt=".2f"))
+
+    def update_setting(self, machine_settings, table):
+        """Update the min or max value for a selected machine setting."""
+        print("\nSelect a machine setting to update:\n")
+        for key, setting in machine_settings.items():
+            print(f"{key}: {setting}")
+
+        selected_key = input("\nEnter a, b, c, d, or e: ").lower()
+
+        if selected_key in machine_settings:
+            selected_setting = machine_settings[selected_key]
+            min_or_max = input("\nDo you want to set a 'min' or 'max' value? ").lower()
+
+            if min_or_max in ["min", "max"]:
+                while True:
+                    try:
+                        value = float(input(f"\nEnter the {min_or_max} value for {selected_setting}: "))
+                        table[selected_setting][min_or_max] = value
+                        break
+                    except ValueError:
+                        print("\nInvalid input. Please enter a numeric value.")
+            else:
+                print("\nInvalid selection. Please enter 'min' or 'max'.")
+        else:
+            print("\nInvalid selection. Please try again.")
+
+    def continue_analysis_prompt(self):
+        """Prompt the user to continue or end the analysis."""
+        while True:
+            continue_analysis = input("\nDo you want to update another setting? (yes/no): ").lower()
+            if continue_analysis in ["yes", "no"]:
+                return continue_analysis == "yes"
+            else:
+                print("\nInvalid input. Please enter 'yes' or 'no'.")
+
+    def run_analysis(self):
+        """Run the machine setting analysis process."""
+        machine_settings = self.initialise_machine_settings()
+        table = self.initialise_table(machine_settings)
+
+        while True:
+            print(f"\nTotal number of sessions: {len(self.pre_transform_data)}")
+            total_failed_sessions = self.pre_transform_data[self.pre_transform_data["Machine failure"] == True].shape[0]
+            print(f"Total number of failed sessions: {total_failed_sessions}")
+
+            self.display_table(table)
+            self.update_setting(machine_settings, table)
+
+            if not self.continue_analysis_prompt():
+                print(f"\nTotal number of sessions: {len(self.pre_transform_data)}")
+                print(f"Total number of failed sessions: {total_failed_sessions}")
+                print("\nFinal Table:")
+                self.display_table(table)
+                break
+
+
 class EDAExecutor:
     """Class to run all EDA, visualisation, and transformations."""
 
@@ -1228,7 +1383,7 @@ class EDAExecutor:
         df_info = DataFrameInfo(data)
         plotter = Plotter(data)
         # TODO: Only detects outliers in 'Rotational speed [rpm]
-        print("\nDetecting Z-score Outliers:")
+        print("\nDetecting z-score Outliers:")
         zscore_outliers = df_info.detect_outliers_zscore("Rotational speed [rpm]")
         print(zscore_outliers)
 
@@ -1388,124 +1543,10 @@ class EDAExecutor:
                 )
                 print(failure_specific_ranges)
 
-    def calculate_setting_limit(self, data, column, min_value=None, max_value=None):
-        """
-        Calculate the number and percentage of sessions above and below given
-        min and max thresholds for a specified machine setting column.
-
-        Parameters:
-            data (pd.DataFrame): The DataFrame containing the data.
-            column (str): The column to analyze.
-            min_value (float, optional): The minimum threshold value.
-            max_value (float, optional): The maximum threshold value.
-
-        Returns:
-            dict: A dictionary containing the calculated statistics.
-        """
-        total_sessions = len(data)
-        sessions_missed_min = data[data[column] < min_value].shape[0] if min_value is not None else 0
-        sessions_missed_max = data[data[column] > max_value].shape[0] if max_value is not None else 0
-
-        sessions_below_with_failure = data[
-            (data[column] < min_value) & data["Machine failure"]
-        ].shape[0] if min_value is not None else 0
-
-        sessions_above_with_failure = data[
-            (data[column] > max_value) & data["Machine failure"]
-        ].shape[0] if max_value is not None else 0
-
-        percentage_missed_min = (sessions_missed_min / total_sessions) * 100 if min_value is not None else 0
-        percentage_missed_max = (sessions_missed_max / total_sessions) * 100 if max_value is not None else 0
-
-        return {
-            "min": min_value,
-            "max": max_value,
-            "sessions_missed_min": sessions_missed_min,
-            "percentage_missed_min": percentage_missed_min,
-            "sessions_missed_max": sessions_missed_max,
-            "percentage_missed_max": percentage_missed_max,
-            "sessions_below_with_failure": sessions_below_with_failure,
-            "sessions_above_with_failure": sessions_above_with_failure,
-        }
-
     def further_analysis(self, data):
         """Conduct further analysis by calling task-specific methods."""
-        machine_settings = {
-            "a": "Torque [Nm]",
-            "b": "Rotational speed [rpm]",
-            "c": "Tool wear [min]",
-            "d": "Process temperature [K]",
-            "e": "Air temperature [K]",
-        }
-
-        table = {setting: {"min": None, "max": None} for setting in machine_settings.values()}
-
-        while True:
-            print(f"\nTotal number of sessions: {len(self.pre_transform_data)}")
-
-            def display_table():
-                table_data = []
-                for setting, values in table.items():
-                    stats = self.calculate_setting_limit(self.pre_transform_data, setting, values["min"], values["max"])
-
-                    table_data.append([
-                        setting,
-                        f"Min: {values['min']}" if values["min"] is not None else "N/A",
-                        stats['sessions_missed_min'],
-                        f"{stats['percentage_missed_min']:.2f}",
-                        stats['sessions_below_with_failure'],
-                        f"{stats['percentage_missed_min']:.2f}"
-                    ])
-
-                    table_data.append([
-                        "",
-                        f"Max: {values['max']}" if values["max"] is not None else "N/A",
-                        stats['sessions_missed_max'],
-                        f"{stats['percentage_missed_max']:.2f}",
-                        stats['sessions_above_with_failure'],
-                        f"{stats['percentage_missed_max']:.2f}"
-                    ])
-
-                headers = [
-                    "Setting",
-                    "Min / Max",
-                    "Sessions\nMissed",
-                    "% Missed",
-                    "Failed Sessions\nAvoided",
-                    "% Failed\nAvoided"
-                ]
-                print(tabulate(table_data, headers=headers, tablefmt="grid", floatfmt=".2f"))
-
-            display_table()
-
-            print("\nSelect a machine setting to update:\n")
-            for key, setting in machine_settings.items():
-                print(f"{key}: {setting}")
-
-            selected_key = input("\nEnter a, b, c, d, or e: ").lower()
-
-            if selected_key in machine_settings:
-                selected_setting = machine_settings[selected_key]
-                min_or_max = input("\nDo you want to set a 'min' or 'max' value? ").lower()
-
-                if min_or_max in ["min", "max"]:
-                    value = float(input(f"\nEnter the {min_or_max} value for {selected_setting}: "))
-                    table[selected_setting][min_or_max] = value
-                else:
-                    print("\nInvalid selection. Please enter 'min' or 'max'.")
-            else:
-                print("\nInvalid selection. Please try again.")
-
-            while True:
-                continue_analysis = input("\nDo you want to update another setting? (yes/no): ").lower()
-                if continue_analysis == "no":
-                    print("\nFinal Table:")
-                    display_table()
-                    return
-                elif continue_analysis == "yes":
-                    break
-                else:
-                    print("\nInvalid input. Please enter 'yes' or 'no'.")
+        calculator = MachineSettingCalculator(self.pre_transform_data)
+        calculator.run_analysis()
 
 
 if __name__ == "__main__":
