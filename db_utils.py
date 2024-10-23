@@ -1388,12 +1388,6 @@ class EDAExecutor:
                 )
                 print(failure_specific_ranges)
 
-    # TODO:
-    # 1. Move the calculate_setting_limit method to a more appropriate class
-    # 2. Separate the further analysis into a different method
-    # 3. Re-add the calls to analyse_operating_ranges, analyse_failures,
-    #    analyse_failure_risk_factors in the further_analysis method
-
     def calculate_setting_limit(self, data, column, min_value=None, max_value=None):
         """
         Calculate the number and percentage of sessions above and below given
@@ -1409,11 +1403,8 @@ class EDAExecutor:
             dict: A dictionary containing the calculated statistics.
         """
         total_sessions = len(data)
-        sessions_below_min = data[data[column] < min_value].shape[0] if min_value is not None else 0
-        sessions_above_max = data[data[column] > max_value].shape[0] if max_value is not None else 0
-
-        # Total number of sessions with machine failure
-        total_failed_sessions = data[data["Machine failure"]].shape[0]
+        sessions_missed_min = data[data[column] < min_value].shape[0] if min_value is not None else 0
+        sessions_missed_max = data[data[column] > max_value].shape[0] if max_value is not None else 0
 
         sessions_below_with_failure = data[
             (data[column] < min_value) & data["Machine failure"]
@@ -1423,34 +1414,22 @@ class EDAExecutor:
             (data[column] > max_value) & data["Machine failure"]
         ].shape[0] if max_value is not None else 0
 
-        percentage_below = (sessions_below_min / total_sessions) * 100 if min_value is not None else 0
-        percentage_above = (sessions_above_max / total_sessions) * 100 if max_value is not None else 0
-
-        total_sessions_avoided = sessions_below_min + sessions_above_max
-        percentage_total_sessions_avoided = (total_sessions_avoided / total_sessions) * 100
-
-        total_failed_sessions_avoided = sessions_below_with_failure + sessions_above_with_failure
-        percentage_total_failed_sessions_avoided = (total_failed_sessions_avoided / total_failed_sessions) * 100
+        percentage_missed_min = (sessions_missed_min / total_sessions) * 100 if min_value is not None else 0
+        percentage_missed_max = (sessions_missed_max / total_sessions) * 100 if max_value is not None else 0
 
         return {
             "min": min_value,
             "max": max_value,
-            "sessions_below_min": sessions_below_min,
-            "percentage_below": percentage_below,
-            "sessions_above_max": sessions_above_max,
-            "percentage_above": percentage_above,
+            "sessions_missed_min": sessions_missed_min,
+            "percentage_missed_min": percentage_missed_min,
+            "sessions_missed_max": sessions_missed_max,
+            "percentage_missed_max": percentage_missed_max,
             "sessions_below_with_failure": sessions_below_with_failure,
             "sessions_above_with_failure": sessions_above_with_failure,
-            "total_sessions_avoided": total_sessions_avoided,
-            "percentage_total_sessions_avoided": percentage_total_sessions_avoided,
-            "total_failed_sessions_avoided": total_failed_sessions_avoided,
-            "percentage_total_failed_sessions_avoided": percentage_total_failed_sessions_avoided,
         }
 
-    # Further_analysis umbrella method
     def further_analysis(self, data):
         """Conduct further analysis by calling task-specific methods."""
-        # Define machine settings with corresponding keys
         machine_settings = {
             "a": "Torque [Nm]",
             "b": "Rotational speed [rpm]",
@@ -1459,76 +1438,46 @@ class EDAExecutor:
             "e": "Air temperature [K]",
         }
 
-        # Initialize the table with empty values
         table = {setting: {"min": None, "max": None} for setting in machine_settings.values()}
 
         while True:
-            # Print total number of sessions
-            total_sessions = len(self.pre_transform_data)
-            print(f"\nTotal number of sessions: {total_sessions}")
+            print(f"\nTotal number of sessions: {len(self.pre_transform_data)}")
 
-            # Display the table using tabulate
             def display_table():
                 table_data = []
-                total_sessions_avoided = 0
-                percentage_total_sessions_avoided = 0
-                total_failed_sessions_avoided = 0
-                percentage_total_failed_sessions_avoided = 0
-
                 for setting, values in table.items():
                     stats = self.calculate_setting_limit(self.pre_transform_data, setting, values["min"], values["max"])
+
                     table_data.append([
                         setting,
-                        values["min"] if values["min"] is not None else "N/A",
-                        values["max"] if values["max"] is not None else "N/A",
-                        stats['sessions_below_min'],
-                        stats['percentage_below'],
-                        stats['sessions_above_max'],
-                        stats['percentage_above'],
+                        f"Min: {values['min']}" if values["min"] is not None else "N/A",
+                        stats['sessions_missed_min'],
+                        f"{stats['percentage_missed_min']:.2f}",
                         stats['sessions_below_with_failure'],
-                        stats['sessions_above_with_failure'],
-                        stats['total_sessions_avoided'],
-                        stats['percentage_total_sessions_avoided'],
-                        stats['total_failed_sessions_avoided'],
-                        stats['percentage_total_failed_sessions_avoided']
+                        f"{stats['percentage_missed_min']:.2f}"
                     ])
 
-                    # Accumulate totals
-                    total_sessions_avoided += stats['total_sessions_avoided']
-                    percentage_total_sessions_avoided += stats['percentage_total_sessions_avoided']
-                    total_failed_sessions_avoided += stats['total_failed_sessions_avoided']
-                    percentage_total_failed_sessions_avoided += stats['percentage_total_failed_sessions_avoided']
-
-                # Add the "Total" row
-                table_data.append([
-                    "Total",
-                    "", "", "", "", "", "", "", "",
-                    total_sessions_avoided,
-                    percentage_total_sessions_avoided,
-                    total_failed_sessions_avoided,
-                    percentage_total_failed_sessions_avoided
-                ])
+                    table_data.append([
+                        "",
+                        f"Max: {values['max']}" if values["max"] is not None else "N/A",
+                        stats['sessions_missed_max'],
+                        f"{stats['percentage_missed_max']:.2f}",
+                        stats['sessions_above_with_failure'],
+                        f"{stats['percentage_missed_max']:.2f}"
+                    ])
 
                 headers = [
                     "Setting",
-                    "Min",
-                    "Max",
-                    "Sessions\nBelow Min",
-                    "% Below",
-                    "Sessions\nAbove Max",
-                    "% Above",
-                    "Failed Sessions\nBelow Min",
-                    "Failed Sessions\nAbove Max",
-                    "Total Sessions\nAvoided",
-                    "Total Sessions\nAvoided (%)",
-                    "Total Failed\nSessions Avoided",
-                    "Total Failed\nSessions Avoided (%)"
+                    "Min / Max",
+                    "Sessions\nMissed",
+                    "% Missed",
+                    "Failed Sessions\nAvoided",
+                    "% Failed\nAvoided"
                 ]
                 print(tabulate(table_data, headers=headers, tablefmt="grid", floatfmt=".2f"))
 
             display_table()
 
-            # Prompt user to select a machine setting
             print("\nSelect a machine setting to update:\n")
             for key, setting in machine_settings.items():
                 print(f"{key}: {setting}")
@@ -1541,18 +1490,15 @@ class EDAExecutor:
 
                 if min_or_max in ["min", "max"]:
                     value = float(input(f"\nEnter the {min_or_max} value for {selected_setting}: "))
-                    # Update the table immediately after input
                     table[selected_setting][min_or_max] = value
                 else:
                     print("\nInvalid selection. Please enter 'min' or 'max'.")
             else:
                 print("\nInvalid selection. Please try again.")
 
-            # Ask if the user wants to update another setting
             while True:
                 continue_analysis = input("\nDo you want to update another setting? (yes/no): ").lower()
                 if continue_analysis == "no":
-                    # Display the table one last time before exiting
                     print("\nFinal Table:")
                     display_table()
                     return
