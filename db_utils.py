@@ -157,18 +157,16 @@ class RDSDatabaseConnector:
             Exception: For any other unexpected errors.
         """
         try:
-            # Establish a connection to execute the SQL query
+            # Establish a connection and execute the SQL query
             with self.engine.connect() as connection:
                 result = pd.read_sql(query, connection)
             return result
         except SQLAlchemyError as e:
-            # Handle SQLAlchemy-specific errors, print the error,
-            # and return an empty DataFrame.
+            # Handle SQLAlchemy-specific errors and return an empty DataFrame
             print(f"An error occurred while executing the query: {e}")
             return pd.DataFrame()
         except Exception as e:
-            # Handle any other unexpected errors, print the error,
-            # and return an empty DataFrame.
+            # Handle unexpected errors and return an empty DataFrame
             print(f"An unexpected error occurred: {e}")
             return pd.DataFrame()
 
@@ -249,21 +247,48 @@ class DataTransform:
         Example:
             transformer.convert_to_boolean('is_active')
         """
-        # Converting the specified column to boolean type
         self.dataframe[column_name] = self.dataframe[column_name].astype(bool)
 
 
 class Plotter:
-    """Class to visualise insights from the data."""
+    """
+     A class for creating various data visualizations.
+
+    This class provides methods to generate plots such as line charts,
+    scatter plots, histograms, bar plots, and more, to help analyze
+    and interpret data.
+
+    Attributes:
+        dataframe (pd.DataFrame): The data to be visualised.
+    """
 
     # TODO: Can this method be refactored at all? any redundant methods or code
     def __init__(self, dataframe):
+        """
+        Initialize the Plotter with a DataFrame.
+
+        Parameters:
+            dataframe (pd.DataFrame): The data to be visualized.
+        """
         self.dataframe = dataframe
 
     # --- Utility Methods ---
 
     def _create_subplots(self, num_plots, cols=3, subplot_size=(4, 4)):
-        """Helper method to handle subplot creation with dynamic columns."""
+        """
+        Create a grid of subplots with a specified number of plots and columns.
+
+        Parameters:
+            num_plots (int): The total number of plots to create.
+            cols (int, optional): The number of columns in the subplot grid. Default is 3.
+            subplot_size (tuple, optional): The size of each subplot in inches. Default is (4, 4).
+
+        Returns:
+            tuple: A tuple containing the number of rows and columns used in the subplot grid.
+
+        This method adjusts the subplot grid to fit the specified number of plots and hides any
+        extra axes that are not needed.
+        """
         # Adjust cols to be the smaller value out of specified cols & num_plots
         cols = min(cols, num_plots)
         # Calculate the number of rows needed based on the number of columns
@@ -292,17 +317,20 @@ class Plotter:
 
     def auto_bin_width(self, data, num_bins=25):
         """
-        Calculate the bin width for a histogram using a custom approach with
-        a specified number of bins, rounding to the nearest significant
-        figure (order of magnitude).
+        Calculate the optimal bin width for a histogram using a custom method.
 
         Parameters:
-        - data (array-like): The data for which to calculate the bin width.
-        - num_bins (int, optional): The number of bins to use for the
-          calculation. Default is 36.
+            data (array-like): The data for which to calculate the bin width.
+            num_bins (int, optional): The number of bins to use for the calculation. Default is 25.
 
         Returns:
-        - float: The computed bin width.
+            float: The computed bin width, rounded to the nearest significant figure.
+
+        Raises:
+            ValueError: If the data contains fewer than two data points or if the bin width is zero.
+
+        This method calculates the bin width by dividing the data range by the number of bins
+        and rounds it to the nearest significant figure to ensure a meaningful histogram.
         """
         data = np.asarray(data)
         n = len(data)
@@ -310,15 +338,11 @@ class Plotter:
         if n < 2:
             raise ValueError("Data must contain at least two data points.")
 
-        # Use the specified number of bins
+        # Calculate the data range to determine the initial bin width
         data_range = np.max(data) - np.min(data)
-
-        # print(f"\nData range: {data_range}")
 
         # Calculate bin width
         bin_width = data_range / num_bins
-
-        # print(f"Initial bin width: {bin_width}")
 
         # Round the bin width to the nearest significant figure
         if bin_width == 0:
@@ -336,8 +360,6 @@ class Plotter:
         # Remove trailing .0 if the value is an integer
         if rounded_bin_width.is_integer():
             rounded_bin_width = int(rounded_bin_width)
-
-        # print(f"Rounded bin width: {rounded_bin_width}")
 
         return rounded_bin_width
 
@@ -395,7 +417,14 @@ class Plotter:
 
     def scatter_multiple_plots(self, column_pairs):
         # TODO: e number being printed on some plots
-        """Create scatter plots for multiple column pairs."""
+        """
+        Create scatter plots for specified column pairs.
+
+        Parameters:
+            column_pairs (list of tuples): Each tuple contains two column names (x, y) to plot against each other.
+
+        This method generates scatter plots for each pair of columns provided, allowing for visual comparison of relationships between variables.
+        """
         num_plots = len(column_pairs)
         rows, cols = self._create_subplots(num_plots)
 
@@ -427,46 +456,92 @@ class Plotter:
         plt.show()
 
     def plot_bar_plots(self, exclude_columns=None):
-        """Generate bar plots for all categorical columns."""
+        """
+        Generate bar plots for all categorical columns in the DataFrame.
+
+        Parameters
+        ----------
+        exclude_columns : list, optional
+            A list of columns to exclude from plotting. If None, all categorical columns
+            will be plotted, by default None.
+
+        Returns
+        -------
+        None
+            Displays the bar plots of categorical columns.
+        """
+        # Filter out specified columns and only keep categorical columns
         categorical_cols = filter_columns(self.dataframe, "category", exclude_columns)
+
+        # Start a new figure for plotting
         plt.figure()
 
+        # Loop through each categorical column to generate a bar plot
         for i, col in enumerate(categorical_cols):
-            plt.subplot(1, len(categorical_cols), i + 1)
+            plt.subplot(1, len(categorical_cols), i + 1)  # Create subplots in a row
             self.dataframe[col].value_counts().plot(kind="bar")
             plt.title(col)
+
+        # Add a main title for all subplots and adjust layout to prevent overlap
         plt.suptitle("Bar plots of all categorical columns")
         plt.tight_layout()
         plt.show()
 
     def correlation_heatmap(self, include_booleans=False):
         """
-        Generate a heatmap of correlations for numerical
-        and optionally boolean columns.
+        Generate a heatmap of correlations for numerical and optionally boolean columns.
+
+        Parameters
+        ----------
+        include_booleans : bool, optional
+            Whether to include boolean columns in the correlation calculation,
+            by default False.
+
+        Returns
+        -------
+        None
+            Displays a heatmap of correlations for the selected DataFrame columns.
         """
+        # Select numeric columns and optionally boolean columns from the DataFrame
         if include_booleans:
             cols_to_include = self.dataframe.select_dtypes(include=[np.number, "bool"])
         else:
             cols_to_include = self.dataframe.select_dtypes(include=[np.number])
 
-        plt.figure(figsize=(10, 8))  # Adjust the figure size
+        # Set figure size for the heatmap
+        plt.figure(figsize=(10, 8))  # Adjust the figure size to accommodate all labels
+
+        # Generate the heatmap for the selected columns
         sns.heatmap(
             cols_to_include.corr(),
-            annot=True,
-            cmap="coolwarm",
-            fmt=".2f",
-            cbar_kws={"shrink": 0.8},
+            annot=True,  # Display correlation coefficients
+            cmap="coolwarm",  # Set color map for visualisation
+            fmt=".2f",  # Format the numbers to 2 decimal places
+            cbar_kws={"shrink": 0.8},  # Control the size of the color bar
         )
+
         # Rotate x-axis & y-axis labels for readability
         plt.xticks(rotation=45, ha="right")
         plt.yticks(rotation=0)
+
+        # Add title and adjust layout
         plt.title("Correlation Heatmap")
         plt.tight_layout()  # Adjust layout to prevent overlap
         plt.show()
 
     def missing_data_matrix(self):
         # TODO: self.dataframe or data? (same for all plotter class)
-        """Display a missing data matrix."""
+        """
+        Display a missing data matrix for the DataFrame. This function helps
+        identify missing data patterns which may be useful for further data imputation
+        or data cleaning tasks.
+
+        Returns
+        -------
+        None
+            Displays a visualisation of the missing data in the DataFrame, highlighting 
+            patterns of missing values.
+        """
         msno.matrix(self.dataframe, figsize=(14, 6), sparkline=False)
         plt.title("Missing Data Matrix")
         plt.tight_layout()
@@ -524,7 +599,16 @@ class Plotter:
         plt.show()
 
     def plot_null_comparison(self, null_counts_before, null_counts_after):
-        """Plot comparison of null counts before and after imputation."""
+        """
+        Plot a comparison of null counts before and after imputation.
+
+        Parameters:
+            null_counts_before (pd.DataFrame): A DataFrame containing the null counts before imputation.
+            null_counts_after (pd.DataFrame): A DataFrame containing the null counts after imputation.
+
+        This method visualizes the change in null counts for each column, helping to assess the effectiveness of the imputation process.
+        """
+        # Create a DataFrame to hold null counts before and after imputation
         null_data = pd.DataFrame(
             {
                 "Before Imputation": null_counts_before["null_count"],
@@ -532,29 +616,44 @@ class Plotter:
             }
         )
 
-        # Generate the bar plot and handle figure creation directly
-        ax = null_data.plot(kind="bar")  # Use 'ax' to manipulate the plot
+        # Generate the bar plot to compare null counts
+        ax = null_data.plot(kind="bar")
 
-        # Set the title and labels directly on the ax object
+        # Set the title and labels for the plot
         ax.set_title("Null Count Before and After Imputation")
         ax.set_ylabel("Null Count")
 
+        # Adjust layout to prevent overlap
         plt.tight_layout()
         plt.show()
 
     def plot_skewness(self, exclude_columns=None):
-        """Plot histograms for numeric columns with skewness information."""
+        """
+        Plot histograms for numeric columns with skewness information.
+
+        Parameters:
+            exclude_columns (list, optional): List of columns to exclude from the histograms. Default is None, which includes all numeric columns.
+
+        This method generates histograms for each numeric column, displaying the skewness value in the title to help identify asymmetry in data distribution.
+        """
+        # Filter numeric columns, excluding specified ones
         numeric_columns = filter_columns(self.dataframe, np.number, exclude_columns)
         num_plots = len(numeric_columns)
+
+        # Create subplots for each numeric column
         rows, cols = self._create_subplots(num_plots)
 
         for i, column in enumerate(numeric_columns, 1):
+            # Calculate skewness for the current column
             skew_value = self.dataframe[column].skew()
+
+            # Plot histogram for the current column
             plt.subplot(rows, cols, i)
             self.dataframe[column].hist(bins=50)
             plt.title(f"{column} (Skew: {skew_value:.2f})")
 
-        plt.suptitle("Histograms for numeric columns with Skewness value")
+        # Set a super title for all subplots
+        plt.suptitle("Histograms for Numeric Columns with Skewness Value")
         plt.show()
 
     def visualise_transformed_column(
@@ -585,63 +684,86 @@ class Plotter:
         plt.show()
 
     def plot_qq(self, exclude_columns=None):
-        """Generate Q-Q plots for numeric columns."""
+        """
+        Generate Q-Q plots for numeric columns to assess normality.
+
+        Parameters:
+            exclude_columns (list, optional): List of columns to exclude from the Q-Q plots. Default is None, which includes all numeric columns.
+
+        This method creates Q-Q plots for each numeric column in the DataFrame, which are useful for visually assessing how closely the data follows a normal distribution.
+        """
+        # Filter numeric columns, excluding specified ones
         numeric_columns = filter_columns(self.dataframe, np.number, exclude_columns)
         num_plots = len(numeric_columns)
+
+        # Create subplots for each numeric column
         rows, cols = self._create_subplots(num_plots)
 
         for i, col in enumerate(numeric_columns, 1):
+            # Plot Q-Q plot for the current column
             plt.subplot(rows, cols, i)
             qqplot(self.dataframe[col], line="q", ax=plt.gca())
             plt.title(f"Q-Q plot of {col}")
 
-        plt.suptitle("Q-Q plots for numeric columns")
+        # Set a super title for all subplots
+        plt.suptitle("Q-Q Plots for Numeric Columns")
         plt.show()
 
     # ------------ Further Analysis ------------ #
 
     def plot_tool_wear_distribution(self, bins=30):
         """
-        Histogram to visualise the distribution of tool wear
-        values.
+        Plot a histogram to visualize the distribution of tool wear values.
+
+        Parameters:
+            bins (int, optional): Number of bins to use in the histogram. Default is 30.
+
+        This method creates a histogram to show the distribution of tool wear times, helping to identify patterns or anomalies in tool usage.
         """
+        # Set the figure size for the plot
         plt.figure(figsize=(10, 6))
 
-        # Create bins to group similar tool wear values together
+        # Plot histogram of tool wear values with specified number of bins
         self.dataframe["Tool wear [min]"].plot(
             kind="hist", bins=bins, edgecolor="black"
         )
 
+        # Set plot titles and labels
         plt.title("Tool Wear Distribution")
         plt.xlabel("Tool wear [min]")
         plt.ylabel("Number of Tools")
 
+        # Adjust layout to prevent overlap
         plt.tight_layout()
         plt.show()
 
     def calculate_failure_rate(self):
         """
-        Calculate and visualise the total number
-        and percentage of failures.
+        Calculate and visualize the total number and percentage of failures.
+
+        This method calculates the failure rate in the manufacturing process and visualises it using a pie chart, providing insights into the proportion of failed processes.
         """
+        # Calculate total number of processes and failures
         total_processes = len(self.dataframe)
         total_failures = self.dataframe["Machine failure"].sum()
 
+        # Calculate failure percentage
         failure_percentage = (total_failures / total_processes) * 100
 
+        # Print failure statistics
         print(f"\nTotal Processes: {total_processes}")
         print(f"Total Failures: {total_failures}")
         print(f"Failure Percentage: {failure_percentage:.2f}%")
 
-        # Visualise failure rate
+        # Visualize failure rate with a pie chart
         labels = ["Failures", "Non-failures"]
         sizes = [total_failures, total_processes - total_failures]
         plt.pie(
             sizes,
             labels=labels,
-            autopct="%1.1f%%",
-            startangle=90,
-            colors=["red", "green"],
+            autopct="%1.1f%%",  # Display percentage on the pie chart
+            startangle=90,      # Start the pie chart at 90 degrees
+            colors=["red", "green"],  # Use red for failures and green for non-failures
         )
         plt.title("Failure Rate in the Manufacturing Process")
         plt.tight_layout()
@@ -649,25 +771,30 @@ class Plotter:
 
     def failures_by_product_quality(self):
         """
-        Analyse failures based on product quality types,
-        print in terminal & visualise them.
+        Analyze and visualize failures based on product quality types.
+
+        This method calculates the number and percentage of failures for each
+        product quality type, prints the results to the terminal, and visualizes
+        them using a bar chart.
         """
-        # Group by product quality and count failures
+        # Group by product quality and count the number of failures
         failures_by_quality = self.dataframe.groupby("Type")["Machine failure"].sum()
         total_by_quality = self.dataframe.groupby("Type").size()
 
+        # Calculate the percentage of failures for each product quality type
         failure_percent_by_quality = round(
             (failures_by_quality / total_by_quality) * 100, 2
         )
 
         # TODO: 'dtype: int64' being printed in terminal
+        # Print the total number of products, failures, and failure percentages
         print("\nTotal by Product Quality:\n", total_by_quality)
         print("\nFailures by Product Quality:\n", failures_by_quality)
         print("\nFailure Percentage by Product Quality:\n", failure_percent_by_quality)
 
-        # TODO: Separate plotting from above (move above into EDAExecutor)
+        # TODO: Separate plotting from above? (move above into EDAExecutor)
 
-        # Visualise failures by product quality
+        # Visualize failures by product quality using a bar chart
         plt.figure(figsize=(8, 6))
         bars = plt.bar(
             failures_by_quality.index,
@@ -687,11 +814,12 @@ class Plotter:
                 va="bottom",
             )
 
-        plt.title("Failure rate by Product Quality (Type)")
+        # Set plot titles and labels
+        plt.title("Failure Rate by Product Quality (Type)")
         plt.xlabel("Product Quality (Type)")
         plt.ylabel("Number of Failures")
 
-        # Add the text legend in a box with opacity
+        # Add a legend explaining the percentage annotation
         plt.text(
             0.95,
             0.95,
@@ -702,23 +830,31 @@ class Plotter:
             bbox=dict(facecolor="white", alpha=0.6),
         )
 
+        # Adjust layout to prevent overlap
         plt.tight_layout()
         plt.show()
 
     def leading_causes_of_failure(self):
-        """Determine, print and visualise the leading causes of failure."""
+        """
+        Determine, print, and visualize the leading causes of failure.
+
+        This method calculates the total number of failures for each failure
+        type, prints the results, and visualizes them using a bar chart to
+        highlight the most common causes of failure.
+        """
         failure_columns = ["TWF", "HDF", "PWF", "OSF", "RNF"]
 
         # Sum the failures for each failure type
         cause_of_failure_counts = self.dataframe[failure_columns].sum()
         total_failures = cause_of_failure_counts.sum()
 
+        # Print the total number of failures for each cause
         print("\nLeading Causes of Failure:\n", cause_of_failure_counts)
 
-        # Calculate percentage of failures for each cause
+        # Calculate the percentage of failures for each cause
         failure_percent_by_cause = (cause_of_failure_counts / total_failures) * 100
 
-        # Visualise the causes of failure
+        # Visualize the causes of failure using a bar chart
         plt.figure(figsize=(8, 6))
         bars = plt.bar(
             cause_of_failure_counts.index,
@@ -738,6 +874,7 @@ class Plotter:
                 va="bottom",
             )
 
+        # Set plot titles and labels
         plt.title("Leading Causes of Failure")
         plt.xlabel("Failure Type")
         plt.ylabel("Number of Failures")
@@ -746,25 +883,30 @@ class Plotter:
 
     def failure_causes_by_product_quality(self):
         """
-        Visualise leading causes of failure grouped by
-        product quality with percentages via Browser.
+        Visualize leading causes of failure grouped by product quality with
+        percentages via Browser.
+
+        This method groups failures by product quality and failure type,
+        calculates the percentage of each failure type within each quality
+        group, and visualizes the results using an interactive bar chart.
         """
         # TODO: This method is extra
         failure_columns = ["TWF", "HDF", "PWF", "OSF", "RNF"]
         failure_data = self.dataframe[self.dataframe["Machine failure"] == 1]
 
-        # Group and prepare data
+        # Group and prepare data for visualization
         failures_grouped = (
             failure_data.groupby("Type")[failure_columns].sum().reset_index()
         )
         failures_melted = failures_grouped.melt(
             id_vars="Type", var_name="Failure Type", value_name="Count"
         )
-        # Calculate percentages
+
+        # Calculate percentages for each failure type within each quality group
         totals = failures_melted.groupby("Type")["Count"].transform("sum")
         failures_melted["Percentage"] = (failures_melted["Count"] / totals) * 100
 
-        # Create interactive plot via browser
+        # Create an interactive plot via browser
         fig = px.bar(
             failures_melted,
             x="Type",
@@ -853,22 +995,29 @@ class Plotter:
         Create violin plots for specified columns, grouped by a categorical column.
 
         Parameters:
-            dataframe (pd.DataFrame): The dataframe containing the data.
-            columns (list): List of columns to plot.
+            dataframe (pd.DataFrame): The DataFrame containing the data.
+            columns (list): List of column names to plot as violin plots.
             x_column (str): The categorical column for grouping (e.g., 'Type').
+
+        This method generates violin plots for each specified column, grouped by
+        the given categorical column, to visualize the distribution and density
+        of the data.
         """
-        # Use the _create_subplots method to create the subplots layout
+        # Determine the number of columns to plot
         num_cols = len(columns)
+
+        # Create subplots layout using the _create_subplots method
         rows, cols = self._create_subplots(num_cols)
 
-        # Create subplots for each column
+        # Generate a violin plot for each specified column
         for i, column in enumerate(columns, 1):
             plt.subplot(rows, cols, i)
             sns.violinplot(data=dataframe, x=x_column, y=column)
             plt.title(f"Violin Plot of {column} by {x_column}")
 
+        # Set a super title for all subplots
         plt.suptitle(f"Violin Plots for Selected Columns by {x_column}")
-        plt.tight_layout()
+        plt.tight_layout()  # Adjust layout to prevent overlap
         plt.show()
 
 
@@ -876,14 +1025,18 @@ class DataFrameInfo:
     """
     A class to extract and display information from a Pandas DataFrame
     for exploratory data analysis (EDA).
+
+    This class provides methods to describe columns, extract statistical
+    values, count distinct values, and detect outliers, among other
+    functionalities, to aid in the EDA process.
     """
 
     def __init__(self, dataframe: pd.DataFrame):
         """
-        Initialise with a DataFrame.
+        Initialize the DataFrameInfo with a DataFrame.
 
         Parameters:
-            dataframe (pd.DataFrame): The DataFrame to analyse.
+            dataframe (pd.DataFrame): The DataFrame to analyze.
         """
         self.dataframe = dataframe
 
@@ -894,20 +1047,23 @@ class DataFrameInfo:
         Describe selected columns and return specified statistics.
 
         Parameters:
-            include_columns (list): Columns to include in the description.
-                                    If None, all columns are included.
-            stats_to_return (list): Statistics to return (e.g., 'min', 'max').
-                                    If None, all statistics are returned.
+            include_columns (list, optional): Columns to include in the
+            description. If None, all columns are included.
+            stats_to_return (list, optional): Statistics to return
+            (e.g., 'min', 'max'). If None, all statistics are returned.
 
         Returns:
-            pd.DataFrame: Description of selected columns.
+            pd.DataFrame: Description of selected columns with specified
+            statistics.
         """
         if include_columns is None:
+            # Include all columns if none are specified
             include_columns = self.dataframe.columns
 
         description = self.dataframe[include_columns].describe(include="all")
 
         if stats_to_return is not None:
+            # Filter the description to include only specified statistics
             description = description.loc[stats_to_return]
 
         return description
@@ -915,17 +1071,18 @@ class DataFrameInfo:
     def extract_stats(self, exclude_columns=None) -> pd.DataFrame:
         """
         Extract statistical values: median, standard deviation, and mean
-        from all numeric columns in the DataFrame, excluding specified columns.
+        from all numeric columns in the DataFrame, excluding specified
+        columns.
 
         Parameters:
-            exclude_columns (list): List of columns to exclude
+            exclude_columns (list, optional): List of columns to exclude
             from the statistics.
 
         Returns:
-            pd.DataFrame: A DataFrame containing the mean,
-            median, and standard deviation.
+            pd.DataFrame: A DataFrame containing the mean, median, and
+            standard deviation of the numeric columns.
         """
-        # Use the filter_columns utility to get the numeric columns
+        # Use filter_columns to include only numeric columns, excluding specified ones
         numeric_cols = filter_columns(
             self.dataframe, np.number, exclude_columns=exclude_columns
         )
@@ -943,8 +1100,8 @@ class DataFrameInfo:
         excluding specified columns.
 
         Parameters:
-            exclude_columns (list): A list of columns to exclude from
-            the distinct count.
+            exclude_columns (list, optional): A list of columns to exclude
+            from the distinct count.
 
         Returns:
             pd.DataFrame: A DataFrame with the count of distinct values
@@ -953,7 +1110,7 @@ class DataFrameInfo:
         if exclude_columns is None:
             exclude_columns = []
 
-        # Use the filter_columns utility to get categorical columns
+        # Use filter_columns to get categorical columns, excluding specified ones
         categorical_columns = filter_columns(
             self.dataframe, "category", exclude_columns=exclude_columns
         )
@@ -969,6 +1126,9 @@ class DataFrameInfo:
     def print_shape(self) -> None:
         """
         Print out the shape of the DataFrame.
+
+        This method outputs the number of rows and columns in the DataFrame,
+        providing a quick overview of its size.
         """
         print(f"\nDataFrame shape: {self.dataframe.shape}")
 
@@ -977,8 +1137,8 @@ class DataFrameInfo:
         Generate a count and percentage of NULL values in each column.
 
         Returns:
-            pd.DataFrame: A DataFrame showing the count and
-            percentage of NULL values for each column.
+            pd.DataFrame: A DataFrame showing the count and percentage of
+            NULL values for each column.
         """
         null_count = self.dataframe.isnull().sum()
         null_percentage = (null_count / len(self.dataframe)) * 100
@@ -995,10 +1155,18 @@ class DataFrameInfo:
 
         Parameters:
             column (str): The column to detect outliers in.
-            threshold (float): The Z-score threshold to identify outliers.
+            threshold (float, optional): The Z-score threshold to identify
+            outliers. Default is 3.0.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the outliers identified
+            in the specified column.
         """
+        # Calculate Z-scores for the specified column
         z_scores = stats.zscore(self.dataframe[column])
+        # Identify outliers based on the Z-score threshold
         outliers = self.dataframe[(z_scores > threshold) | (z_scores < -threshold)]
+
         return outliers
 
     def detect_outliers_iqr(self, column: str):
@@ -1007,12 +1175,20 @@ class DataFrameInfo:
 
         Parameters:
             column (str): The column to detect outliers in.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the outliers identified
+            in the specified column.
         """
+        # Calculate the first and third quartiles
         Q1 = self.dataframe[column].quantile(0.25)
         Q3 = self.dataframe[column].quantile(0.75)
+        # Calculate the interquartile range (IQR)
         IQR = Q3 - Q1
+        # Determine the lower and upper bounds for outliers
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
+        # Identify outliers based on the bounds
         outliers = self.dataframe[
             (self.dataframe[column] < lower_bound)
             | (self.dataframe[column] > upper_bound)
@@ -1021,26 +1197,37 @@ class DataFrameInfo:
 
 
 class DataFrameTransform:
-    """Class to perform EDA transformations on the DataFrame."""
+    """
+    Class to perform EDA transformations on the DataFrame.
+
+    This class provides methods for imputing missing values, applying
+    transformations, and managing DataFrame columns to facilitate
+    exploratory data analysis.
+    """
 
     def __init__(self, dataframe: pd.DataFrame):
+        """
+        Initialize the DataFrameTransform with a DataFrame.
+
+        Parameters:
+            dataframe (pd.DataFrame): The DataFrame to transform.
+        """
         self.dataframe = dataframe
 
     def knn_impute(self, target_column, correlated_columns, n_neighbors=5):
         """
-        Apply KNN imputation to the target column using only the specified
-        correlated columns.
+        Apply KNN imputation to the target column using specified correlated
+        columns.
 
         Parameters:
             target_column (str): The name of the column to impute.
             correlated_columns (list): List of correlated columns to use for
                                        KNN imputation.
-            n_neighbors (int): The number of neighbors to consider
-                               for imputation.
+            n_neighbors (int, optional): The number of neighbors to consider
+                                         for imputation. Default is 5.
         """
         # Select the target column along with the correlated columns
         columns_to_use = correlated_columns + [target_column]
-
         knn_data = self.dataframe[columns_to_use]
 
         # Perform KNN imputation on these columns
@@ -1051,7 +1238,7 @@ class DataFrameTransform:
         self.dataframe[target_column] = np.round(imputed_data[:, -1], 1)
 
         print(
-            f"\nKNN imputation applied to {target_column}" f"using {correlated_columns}"
+            f"\nKNN imputation applied to {target_column} using {correlated_columns}"
         )
 
     def impute_missing_values(self, strategies=None, knn_columns=None):
@@ -1060,12 +1247,12 @@ class DataFrameTransform:
         strategy.
 
         Parameters:
-            strategies : dict, optional
-                A dictionary where the key is the column name, and the value is
-                the imputation strategy ('mean', 'median', 'knn').
-            knn_columns : dict, optional
-                Dictionary where the key is the column to impute, and the value
-                is the list of correlated columns to use for KNN imputation.
+            strategies (dict, optional): A dictionary where the key is the
+            column name, and the value is the imputation strategy ('mean',
+            'median', 'knn').
+            knn_columns (dict, optional): Dictionary where the key is the
+            column to impute, and the value is the list of correlated columns
+            to use for KNN imputation.
         """
         # Select only numeric columns
         numeric_columns = self.dataframe.select_dtypes(include=[np.number])
@@ -1098,8 +1285,8 @@ class DataFrameTransform:
 
     def apply_yeo_johnson(self, column: str):
         """
-        Apply Yeo-Johnson transformation to the specified column and
-        replace the original column with the transformed values.
+        Apply Yeo-Johnson transformation to the specified column and replace
+        the original column with the transformed values.
 
         Parameters:
             column (str): The name of the column to transform.
@@ -1116,8 +1303,10 @@ class DataFrameTransform:
         """
         Apply Log, Box-Cox, and Yeo-Johnson transformations to the specified
         column. Print skewness post-transformation and plot the distributions.
-        """
 
+        Parameters:
+            column (str): The name of the column to transform and preview.
+        """
         # Handle log transformation (requires values > 0)
         log_transformed = np.log1p(self.dataframe[column])
         log_skew = log_transformed.skew()
@@ -1155,7 +1344,13 @@ class DataFrameTransform:
 
     def save_transformed_data(self, filename: str = "transformed_data.csv"):
         # TODO: Is this method necessary?
-        """Save the transformed DataFrame to a new CSV file."""
+        """
+        Save the transformed DataFrame to a new CSV file.
+
+        Parameters:
+            filename (str, optional): The name of the file to save the
+            DataFrame to. Default is "transformed_data.csv".
+        """
         save_data_to_csv(self.dataframe, filename)
 
     def drop_columns(self, columns_to_drop: list):
@@ -1187,9 +1382,22 @@ class DataFrameTransform:
 
 
 class MachineSettingCalculator:
-    """Class to handle machine setting calculations and analysis."""
+    """
+    Class to handle machine setting calculations and analysis.
+
+    This class provides methods to calculate session statistics based on
+    machine settings, initialize and update settings, and display results
+    in a tabular format.
+    """
 
     def __init__(self, pre_transform_data):
+        """
+        Initialize the MachineSettingCalculator with pre-transformed data.
+
+        Parameters:
+            pre_transform_data (pd.DataFrame): The DataFrame containing
+            pre-transformed data for analysis.
+        """
         self.pre_transform_data = pre_transform_data
 
     def calculate_setting_limit(self, data, column, min_value=None, max_value=None):
@@ -1199,29 +1407,38 @@ class MachineSettingCalculator:
 
         Parameters:
             data (pd.DataFrame): The DataFrame containing the data.
-            column (str): The column to analyse.
+            column (str): The column to analyze.
             min_value (float, optional): The minimum threshold value.
             max_value (float, optional): The maximum threshold value.
 
         Returns:
-            dict: A dictionary containing the calculated statistics.
+            dict: A dictionary containing the calculated statistics, including
+            sessions missed and failed sessions for both min and max thresholds.
         """
         total_sessions = len(data)
         total_failed_sessions = data[data["Machine failure"] == True].shape[0]
+
+        # Calculate sessions below the minimum threshold, if specified
         sessions_missed_min = data[data[column] < min_value].shape[0] if min_value is not None else 0
+
+        # Calculate sessions above the maximum threshold, if specified
         sessions_missed_max = data[data[column] > max_value].shape[0] if max_value is not None else 0
 
+        # Calculate percentages for sessions missed
         percentage_missed_min = (sessions_missed_min / total_sessions) * 100 if min_value is not None else 0
         percentage_missed_max = (sessions_missed_max / total_sessions) * 100 if max_value is not None else 0
 
+        # Calculate failed sessions below the minimum threshold
         failed_sessions_min = data[
             (data[column] < min_value) & data["Machine failure"]
         ].shape[0] if min_value is not None else 0
 
+        # Calculate failed sessions above the maximum threshold
         failed_sessions_max = data[
             (data[column] > max_value) & data["Machine failure"]
         ].shape[0] if max_value is not None else 0
 
+        # Calculate percentages for failed sessions
         percentage_failed_sessions_min = (failed_sessions_min / total_failed_sessions) * 100 if min_value is not None else 0
         percentage_failed_sessions_max = (failed_sessions_max / total_failed_sessions) * 100 if max_value is not None else 0
 
@@ -1239,7 +1456,12 @@ class MachineSettingCalculator:
         }
 
     def initialise_machine_settings(self):
-        """Initialise machine settings with min and max values set to None."""
+        """
+        Initialize machine settings with descriptive names.
+
+        Returns:
+            dict: A dictionary mapping setting keys to descriptive names.
+        """
         return {
             "a": "Torque [Nm]",
             "b": "Rotational speed [rpm]",
@@ -1249,15 +1471,33 @@ class MachineSettingCalculator:
         }
 
     def initialise_table(self, machine_settings):
-        """Initialise a table with min and max values set to None for each setting."""
+        """
+        Initialize a table with min and max values set to None for each setting.
+
+        Parameters:
+            machine_settings (dict): A dictionary of machine settings.
+
+        Returns:
+            dict: A dictionary with settings as keys and min/max values as None.
+        """
         return {setting: {"min": None, "max": None} for setting in machine_settings.values()}
 
     def display_table(self, table):
-        """Display the table with calculated statistics."""
+        """
+        Display the table with calculated statistics.
+
+        Parameters:
+            table (dict): A dictionary containing machine settings and their
+            min/max values.
+        """
         table_data = []
         for setting, values in table.items():
-            stats = self.calculate_setting_limit(self.pre_transform_data, setting, values["min"], values["max"])
+            # Calculate statistics for each setting using the current min/max values
+            stats = self.calculate_setting_limit(
+                self.pre_transform_data, setting, values["min"], values["max"]
+            )
 
+            # Append statistics for the minimum threshold
             table_data.append([
                 setting,
                 f"Min: {values['min']}" if values["min"] is not None else "N/A",
@@ -1267,6 +1507,7 @@ class MachineSettingCalculator:
                 f"{stats['percentage_failed_sessions_min']:.2f}"
             ])
 
+            # Append statistics for the maximum threshold
             table_data.append([
                 "",
                 f"Max: {values['max']}" if values["max"] is not None else "N/A",
@@ -1276,6 +1517,7 @@ class MachineSettingCalculator:
                 f"{stats['percentage_failed_sessions_max']:.2f}"
             ])
 
+        # Define headers for the table
         headers = [
             "Setting",
             "Min / Max",
@@ -1284,23 +1526,35 @@ class MachineSettingCalculator:
             "Failed Sessions\nAvoided",
             "% Failed\nAvoided"
         ]
+        # Print the table using tabulate for a formatted grid display
         print(tabulate(table_data, headers=headers, tablefmt="grid", floatfmt=".2f"))
 
     def update_setting(self, machine_settings, table):
-        """Update the min or max value for a selected machine setting."""
+        """
+        Update the min or max value for a selected machine setting.
+
+        Parameters:
+            machine_settings (dict): A dictionary of machine settings.
+            table (dict): A dictionary containing machine settings and their
+            min/max values.
+        """
         print("\nSelect a machine setting to update:\n")
+        # Display available machine settings for selection
         for key, setting in machine_settings.items():
             print(f"{key}: {setting}")
 
+        # Prompt user to select a setting to update
         selected_key = input("\nEnter a, b, c, d, or e: ").lower()
 
         if selected_key in machine_settings:
             selected_setting = machine_settings[selected_key]
+            # Ask whether to update the min or max value
             min_or_max = input("\nDo you want to set a 'min' or 'max' value? ").lower()
 
             if min_or_max in ["min", "max"]:
                 while True:
                     try:
+                        # Prompt user to enter a numeric value for the selected setting
                         value = float(input(f"\nEnter the {min_or_max} value for {selected_setting}: "))
                         table[selected_setting][min_or_max] = value
                         break
@@ -1312,8 +1566,14 @@ class MachineSettingCalculator:
             print("\nInvalid selection. Please try again.")
 
     def continue_analysis_prompt(self):
-        """Prompt the user to continue or end the analysis."""
+        """
+        Prompt the user to continue or end the analysis.
+
+        Returns:
+            bool: True if the user wants to continue, False otherwise.
+        """
         while True:
+            # Ask user if they want to update another setting
             continue_analysis = input("\nDo you want to update another setting? (yes/no): ").lower()
             if continue_analysis in ["yes", "no"]:
                 return continue_analysis == "yes"
@@ -1321,19 +1581,33 @@ class MachineSettingCalculator:
                 print("\nInvalid input. Please enter 'yes' or 'no'.")
 
     def run_machine_setting_calculator(self):
-        """Run the machine setting analysis process."""
+        """
+        Run the machine setting analysis process.
+
+        This method initializes machine settings, displays the table of
+        statistics, and allows the user to update settings and continue
+        analysis until they choose to stop.
+        """
+        # Initialize machine settings and table
         machine_settings = self.initialise_machine_settings()
         table = self.initialise_table(machine_settings)
 
         while True:
+            # Display total number of sessions and failed sessions
             print(f"\nTotal number of sessions: {len(self.pre_transform_data)}")
-            total_failed_sessions = self.pre_transform_data[self.pre_transform_data["Machine failure"] == True].shape[0]
+            total_failed_sessions = self.pre_transform_data[
+                self.pre_transform_data["Machine failure"] == True
+            ].shape[0]
             print(f"Total number of failed sessions: {total_failed_sessions}")
 
+            # Display the current table of statistics
             self.display_table(table)
+            # Allow user to update settings
             self.update_setting(machine_settings, table)
 
+            # Check if the user wants to continue updating settings
             if not self.continue_analysis_prompt():
+                # Final display of total sessions and failed sessions
                 print(f"\nTotal number of sessions: {len(self.pre_transform_data)}")
                 print(f"Total number of failed sessions: {total_failed_sessions}")
                 print("\nFinal Table:")
@@ -1342,17 +1616,36 @@ class MachineSettingCalculator:
 
 
 class EDAExecutor:
-    """Class to run all EDA, visualisation, and transformations."""
+    """
+    Class to run all EDA, visualization, and transformations.
+
+    This class provides methods to fetch, reformat, explore, visualize, and
+    transform data, facilitating comprehensive exploratory data analysis.
+    """
 
     def __init__(self, db_connector):
-        """Initialise with db_connector."""
-        # TODO: All other classes initialise 'self.dataframe' not 'self.data'
+        """
+        Initialize the EDAExecutor with a database connector.
+
+        Parameters:
+            db_connector: An object responsible for database connections and
+            data retrieval.
+        """
+        # TODO: All other classes initialize 'self.dataframe' not 'self.data'
         self.data = None
         self.pre_transform_data = None
         self.db_connector = db_connector
 
     def fetch_and_save_data(self, query):
-        """Fetch data from database and save it to CSV."""
+        """
+        Fetch data from the database and save it to a CSV file.
+
+        Parameters:
+            query (str): The SQL query to execute for data retrieval.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing the fetched data.
+        """
         data = self.db_connector.fetch_data(query)
         if not data.empty:
             csv_filename = "failure_data.csv"
@@ -1365,10 +1658,10 @@ class EDAExecutor:
 
     def reformat_data(self, data):
         """
-        Reformat data to ensure correct column formats, in this instance:
-        - Converting datatypes of specified columns.
+        Reformat data to ensure correct column formats, such as converting
+        datatypes of specified columns.
 
-         Parameters:
+        Parameters:
             data (pd.DataFrame): The DataFrame to reformat.
 
         Returns:
@@ -1388,15 +1681,21 @@ class EDAExecutor:
         return data  # Return the transformed data
 
     def explore_stats(self, data):
-        """Run basic statistical exploration on the data, print to terminal."""
-        print("\nprinting statistics...")
+        """
+        Run basic statistical exploration on the data and print results
+        to the terminal.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to explore.
+        """
+        print("\nPrinting statistics...")
         df_info = DataFrameInfo(data)
 
-        # List which columns to exclude
+        # List which columns to exclude from certain analyses
         extract_stats_exclude = ["UDI"]
         count_distinct_exclude = ["Product ID"]
 
-        # Print statistics
+        # Print various statistics
         print("\nColumn Descriptions:\n", df_info.describe_columns())
         print(
             "\nExtracted Statistics:\n",
@@ -1410,14 +1709,19 @@ class EDAExecutor:
         df_info.print_shape()
         print("\nNull Value Counts:\n", df_info.count_null_values())
 
-        print("\nexploration of stats complete..")
+        print("\nExploration of stats complete..")
 
     def visualise_data(self, data):
-        """Generate visualisations for data."""
-        print("\nGenerating visualisations...")
+        """
+        Generate visualizations for the data.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to visualize.
+        """
+        print("\nGenerating visualizations...")
         plotter = Plotter(data)
 
-        # Data selections
+        # Define column pairs for scatter plots
         scatter_plot_column_pairs = [
             ("Air temperature [K]", "Process temperature [K]"),
             ("Rotational speed [rpm]", "Torque [Nm]"),
@@ -1425,7 +1729,7 @@ class EDAExecutor:
             ("Tool wear [min]", "Process temperature [K]"),
         ]
 
-        # Call plots
+        # Generate various plots
         plotter.scatter_multiple_plots(scatter_plot_column_pairs)
         plotter.plot_histograms(exclude_columns="UDI")
         plotter.plot_bar_plots(exclude_columns="Product ID")
@@ -1435,13 +1739,20 @@ class EDAExecutor:
         plotter.plot_boxplots(exclude_columns="UDI")
         plotter.plot_skewness(exclude_columns="UDI")
         plotter.plot_qq(exclude_columns="UDI")
-        print("\nVisualisation complete..")
+        print("\nVisualization complete..")
 
     def run_imputation_and_null_visualisation(
         self, data, knn_columns=None, visualisations_on=True
     ):
-        """Handle null imputation and optionally
-        visualise null count comparison."""
+        """
+        Handle null imputation and optionally visualize null count comparison.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to impute.
+            knn_columns (dict, optional): Dictionary specifying columns for
+            KNN imputation.
+            visualisations_on (bool, optional): Flag to enable visualization.
+        """
         # TODO: keep knn_columns param?
         df_transform = DataFrameTransform(data)
         df_info = DataFrameInfo(data)
@@ -1468,14 +1779,20 @@ class EDAExecutor:
         null_count_after_impute = df_info.count_null_values()
         print("\nPost impute null value counts:\n", null_count_after_impute)
 
-        # Visualise null count comparison (if visualisation flag is True)
+        # Visualize null count comparison (if visualization flag is True)
         if visualisations_on:
             plotter.plot_null_comparison(initial_null_count, null_count_after_impute)
 
         print("\nRun null imputation complete..")
 
     def handle_skewness_and_transformations(self, data, visualisations_on=True):
-        """Handle skewness detection and transformation of columns."""
+        """
+        Handle skewness detection and transformation of columns.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to transform.
+            visualisations_on (bool, optional): Flag to enable visualization.
+        """
         df_transform = DataFrameTransform(data)
         plotter = Plotter(data)
 
@@ -1483,7 +1800,7 @@ class EDAExecutor:
         if self.pre_transform_data is None:
             self.pre_transform_data = data.copy()
 
-        # Preview and visualise transformation (if visualisation flag is True)
+        # Preview and visualize transformation (if visualization flag is True)
         if visualisations_on:
             df_transform.preview_transformations("Rotational speed [rpm]")
 
@@ -1498,7 +1815,7 @@ class EDAExecutor:
         # Update the dataframe with the transformed data
         df_transform.dataframe["Rotational speed [rpm]"] = yeo_transformed_data
 
-        # Visualise transformation (if visualisation flag is True)
+        # Visualize transformation (if visualization flag is True)
         if visualisations_on:
             plotter.visualise_transformed_column(
                 column="Rotational speed [rpm]",
@@ -1506,13 +1823,18 @@ class EDAExecutor:
                 transformed=yeo_transformed_data,
             )
 
-        print("\nRun_skewness_transformations complete..")
+        print("\nRun skewness transformations complete..")
 
     def handle_outlier_detection(self, data):
-        """Detect and handle outliers in the data."""
+        """
+        Detect and handle outliers in the data.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to analyze for outliers.
+        """
         df_info = DataFrameInfo(data)
         plotter = Plotter(data)
-        # TODO: Only detects outliers in 'Rotational speed [rpm]
+        # TODO: Only detects outliers in 'Rotational speed [rpm]'
         print("\nDetecting z-score Outliers:")
         zscore_outliers = df_info.detect_outliers_zscore("Rotational speed [rpm]")
         print(zscore_outliers)
@@ -1521,7 +1843,7 @@ class EDAExecutor:
         iqr_outliers = df_info.detect_outliers_iqr("Rotational speed [rpm]")
         print(iqr_outliers)
 
-        # Visualise outliers
+        # Visualize outliers
         plotter.scatter_multiple_plots(
             [
                 ("Air temperature [K]", "Process temperature [K]"),
@@ -1538,7 +1860,12 @@ class EDAExecutor:
     # Task 1: Operating Ranges Analysis
     def analyse_operating_ranges(self, data):
         # TODO: Generate table(s) for operating ranges for better readability
-        """Analyse and display operating ranges across product types."""
+        """
+        Analyse and display operating ranges across product types.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to analyze for operating ranges.
+        """
         plotter = Plotter(data)
         selected_columns = [
             "Air temperature [K]",
@@ -1581,7 +1908,12 @@ class EDAExecutor:
 
     # Task 2: Failures Analysis
     def analyse_failures(self, data):
-        """Analyse failures by product quality and failure type."""
+        """
+        Analyse failures by product quality and failure type.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to analyze for failures.
+        """
         plotter = Plotter(data)
 
         plotter.calculate_failure_rate()
@@ -1598,6 +1930,9 @@ class EDAExecutor:
         temperatures, rpm) are correlated with the different types of failures.
         The aim is to identify specific conditions that lead to increased
         failure rates.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to analyze for risk factors.
 
         Steps:
         - # TODO: fill in these steps
@@ -1640,7 +1975,7 @@ class EDAExecutor:
             )
         """
 
-        # Boxplots for mcahine settings by product quality ('Type')
+        # Boxplots for machine settings by product quality ('Type')
         plotter.plot_boxplots(
             dataframe=self.pre_transform_data, columns=machine_settings, x_column="Type"
         )
@@ -1670,7 +2005,12 @@ class EDAExecutor:
                 print(failure_specific_ranges)
 
     def further_analysis(self, data):
-        """Conduct further analysis by calling task-specific methods."""
+        """
+        Conduct further analysis by calling task-specific methods.
+
+        Parameters:
+            data (pd.DataFrame): The DataFrame to analyze further.
+        """
         calculator = MachineSettingCalculator(self.pre_transform_data)
         calculator.run_machine_setting_calculator()
 
