@@ -280,14 +280,16 @@ class Plotter:
 
         Parameters:
             num_plots (int): The total number of plots to create.
-            cols (int, optional): The number of columns in the subplot grid. Default is 3.
-            subplot_size (tuple, optional): The size of each subplot in inches. Default is (4, 4).
+            cols (int, optional): The number of columns in the subplot grid.
+            Default is 3. subplot_size (tuple, optional): The size of each subplot in
+            inches. Default is (4, 4).
 
         Returns:
-            tuple: A tuple containing the number of rows and columns used in the subplot grid.
+            tuple: A tuple containing the number of rows and columns used in the
+                   subplot grid.
 
-        This method adjusts the subplot grid to fit the specified number of plots and hides any
-        extra axes that are not needed.
+        This method adjusts the subplot grid to fit the specified number of plots and
+        hides any extra axes that are not needed.
         """
         # Adjust cols to be the smaller value out of specified cols & num_plots
         cols = min(cols, num_plots)
@@ -321,16 +323,19 @@ class Plotter:
 
         Parameters:
             data (array-like): The data for which to calculate the bin width.
-            num_bins (int, optional): The number of bins to use for the calculation. Default is 25.
+            num_bins (int, optional): The number of bins to use for the calculation.
+                                      Default is 25.
 
         Returns:
             float: The computed bin width, rounded to the nearest significant figure.
 
         Raises:
-            ValueError: If the data contains fewer than two data points or if the bin width is zero.
+            ValueError: If the data contains fewer than two data points or if the
+            bin width is zero.
 
-        This method calculates the bin width by dividing the data range by the number of bins
-        and rounds it to the nearest significant figure to ensure a meaningful histogram.
+        This method calculates the bin width by dividing the data range by the number
+        of bins and rounds it to the nearest significant figure to ensure a meaningful
+        histogram.
         """
         data = np.asarray(data)
         n = len(data)
@@ -421,9 +426,12 @@ class Plotter:
         Create scatter plots for specified column pairs.
 
         Parameters:
-            column_pairs (list of tuples): Each tuple contains two column names (x, y) to plot against each other.
+            column_pairs (list of tuples): Each tuple contains two column
+                                           names (x, y) to plot against each
+                                           other.
 
-        This method generates scatter plots for each pair of columns provided, allowing for visual comparison of relationships between variables.
+        This method generates scatter plots for each pair of columns provided,
+        allowing for visual comparison of relationships between variables.
         """
         num_plots = len(column_pairs)
         rows, cols = self._create_subplots(num_plots)
@@ -539,7 +547,7 @@ class Plotter:
         Returns
         -------
         None
-            Displays a visualisation of the missing data in the DataFrame, highlighting 
+            Displays a visualisation of the missing data in the DataFrame, highlighting
             patterns of missing values.
         """
         msno.matrix(self.dataframe, figsize=(14, 6), sparkline=False)
@@ -603,10 +611,13 @@ class Plotter:
         Plot a comparison of null counts before and after imputation.
 
         Parameters:
-            null_counts_before (pd.DataFrame): A DataFrame containing the null counts before imputation.
-            null_counts_after (pd.DataFrame): A DataFrame containing the null counts after imputation.
+            null_counts_before (pd.DataFrame): A DataFrame containing the null counts
+                                               before imputation.
+            null_counts_after (pd.DataFrame): A DataFrame containing the null counts
+                                              after imputation.
 
-        This method visualizes the change in null counts for each column, helping to assess the effectiveness of the imputation process.
+        This method visualizes the change in null counts for each column, helping to
+        assess the effectiveness of the imputation process.
         """
         # Create a DataFrame to hold null counts before and after imputation
         null_data = pd.DataFrame(
@@ -632,9 +643,12 @@ class Plotter:
         Plot histograms for numeric columns with skewness information.
 
         Parameters:
-            exclude_columns (list, optional): List of columns to exclude from the histograms. Default is None, which includes all numeric columns.
+            exclude_columns (list, optional): List of columns to exclude from the
+                                             histograms. Default is None, which
+                                             includes all numeric columns.
 
-        This method generates histograms for each numeric column, displaying the skewness value in the title to help identify asymmetry in data distribution.
+        This method generates histograms for each numeric column, displaying the
+        skewness value in the title to help identify asymmetry in data distribution.
         """
         # Filter numeric columns, excluding specified ones
         numeric_columns = filter_columns(self.dataframe, np.number, exclude_columns)
@@ -688,9 +702,13 @@ class Plotter:
         Generate Q-Q plots for numeric columns to assess normality.
 
         Parameters:
-            exclude_columns (list, optional): List of columns to exclude from the Q-Q plots. Default is None, which includes all numeric columns.
+            exclude_columns (list, optional): List of columns to exclude from the
+                                              Q-Q plots. Default is None, which
+                                              includes all numeric columns.
 
-        This method creates Q-Q plots for each numeric column in the DataFrame, which are useful for visually assessing how closely the data follows a normal distribution.
+        This method creates Q-Q plots for each numeric column in the DataFrame,
+        which are useful for visually assessing how closely the data follows a
+        normal distribution.
         """
         # Filter numeric columns, excluding specified ones
         numeric_columns = filter_columns(self.dataframe, np.number, exclude_columns)
@@ -718,7 +736,8 @@ class Plotter:
         Parameters:
             bins (int, optional): Number of bins to use in the histogram. Default is 30.
 
-        This method creates a histogram to show the distribution of tool wear times, helping to identify patterns or anomalies in tool usage.
+        This method creates a histogram to show the distribution of tool wear
+        times, helping to identify patterns or anomalies in tool usage.
         """
         # Set the figure size for the plot
         plt.figure(figsize=(10, 6))
@@ -741,7 +760,9 @@ class Plotter:
         """
         Calculate and visualize the total number and percentage of failures.
 
-        This method calculates the failure rate in the manufacturing process and visualises it using a pie chart, providing insights into the proportion of failed processes.
+        This method calculates the failure rate in the manufacturing process and
+        visualises it using a pie chart, providing insights into the proportion
+        of failed processes.
         """
         # Calculate total number of processes and failures
         total_processes = len(self.dataframe)
@@ -762,7 +783,7 @@ class Plotter:
             sizes,
             labels=labels,
             autopct="%1.1f%%",  # Display percentage on the pie chart
-            startangle=90,      # Start the pie chart at 90 degrees
+            startangle=90,  # Start the pie chart at 90 degrees
             colors=["red", "green"],  # Use red for failures and green for non-failures
         )
         plt.title("Failure Rate in the Manufacturing Process")
@@ -1237,9 +1258,7 @@ class DataFrameTransform:
         # Replace target column with imputed values & round to 1 decimal point
         self.dataframe[target_column] = np.round(imputed_data[:, -1], 1)
 
-        print(
-            f"\nKNN imputation applied to {target_column} using {correlated_columns}"
-        )
+        print(f"\nKNN imputation applied to {target_column} using {correlated_columns}")
 
     def impute_missing_values(self, strategies=None, knn_columns=None):
         """
@@ -1416,31 +1435,51 @@ class MachineSettingCalculator:
             sessions missed and failed sessions for both min and max thresholds.
         """
         total_sessions = len(data)
-        total_failed_sessions = data[data["Machine failure"] == True].shape[0]
+        total_failed_sessions = data[data["Machine failure"]].shape[0]
 
         # Calculate sessions below the minimum threshold, if specified
-        sessions_missed_min = data[data[column] < min_value].shape[0] if min_value is not None else 0
+        sessions_missed_min = (
+            data[data[column] < min_value].shape[0] if min_value is not None else 0
+        )
 
         # Calculate sessions above the maximum threshold, if specified
-        sessions_missed_max = data[data[column] > max_value].shape[0] if max_value is not None else 0
+        sessions_missed_max = (
+            data[data[column] > max_value].shape[0] if max_value is not None else 0
+        )
 
         # Calculate percentages for sessions missed
-        percentage_missed_min = (sessions_missed_min / total_sessions) * 100 if min_value is not None else 0
-        percentage_missed_max = (sessions_missed_max / total_sessions) * 100 if max_value is not None else 0
+        percentage_missed_min = (
+            (sessions_missed_min / total_sessions) * 100 if min_value is not None else 0
+        )
+        percentage_missed_max = (
+            (sessions_missed_max / total_sessions) * 100 if max_value is not None else 0
+        )
 
         # Calculate failed sessions below the minimum threshold
-        failed_sessions_min = data[
-            (data[column] < min_value) & data["Machine failure"]
-        ].shape[0] if min_value is not None else 0
+        failed_sessions_min = (
+            data[(data[column] < min_value) & data["Machine failure"]].shape[0]
+            if min_value is not None
+            else 0
+        )
 
         # Calculate failed sessions above the maximum threshold
-        failed_sessions_max = data[
-            (data[column] > max_value) & data["Machine failure"]
-        ].shape[0] if max_value is not None else 0
+        failed_sessions_max = (
+            data[(data[column] > max_value) & data["Machine failure"]].shape[0]
+            if max_value is not None
+            else 0
+        )
 
         # Calculate percentages for failed sessions
-        percentage_failed_sessions_min = (failed_sessions_min / total_failed_sessions) * 100 if min_value is not None else 0
-        percentage_failed_sessions_max = (failed_sessions_max / total_failed_sessions) * 100 if max_value is not None else 0
+        percentage_failed_sessions_min = (
+            (failed_sessions_min / total_failed_sessions) * 100
+            if min_value is not None
+            else 0
+        )
+        percentage_failed_sessions_max = (
+            (failed_sessions_max / total_failed_sessions) * 100
+            if max_value is not None
+            else 0
+        )
 
         return {
             "min": min_value,
@@ -1480,7 +1519,9 @@ class MachineSettingCalculator:
         Returns:
             dict: A dictionary with settings as keys and min/max values as None.
         """
-        return {setting: {"min": None, "max": None} for setting in machine_settings.values()}
+        return {
+            setting: {"min": None, "max": None} for setting in machine_settings.values()
+        }
 
     def display_table(self, table):
         """
@@ -1498,24 +1539,28 @@ class MachineSettingCalculator:
             )
 
             # Append statistics for the minimum threshold
-            table_data.append([
-                setting,
-                f"Min: {values['min']}" if values["min"] is not None else "N/A",
-                stats['sessions_missed_min'],
-                f"{stats['percentage_missed_min']:.2f}",
-                stats['failed_sessions_min'],
-                f"{stats['percentage_failed_sessions_min']:.2f}"
-            ])
+            table_data.append(
+                [
+                    setting,
+                    f"Min: {values['min']}" if values["min"] is not None else "N/A",
+                    stats["sessions_missed_min"],
+                    f"{stats['percentage_missed_min']:.2f}",
+                    stats["failed_sessions_min"],
+                    f"{stats['percentage_failed_sessions_min']:.2f}",
+                ]
+            )
 
             # Append statistics for the maximum threshold
-            table_data.append([
-                "",
-                f"Max: {values['max']}" if values["max"] is not None else "N/A",
-                stats['sessions_missed_max'],
-                f"{stats['percentage_missed_max']:.2f}",
-                stats['failed_sessions_max'],
-                f"{stats['percentage_failed_sessions_max']:.2f}"
-            ])
+            table_data.append(
+                [
+                    "",
+                    f"Max: {values['max']}" if values["max"] is not None else "N/A",
+                    stats["sessions_missed_max"],
+                    f"{stats['percentage_missed_max']:.2f}",
+                    stats["failed_sessions_max"],
+                    f"{stats['percentage_failed_sessions_max']:.2f}",
+                ]
+            )
 
         # Define headers for the table
         headers = [
@@ -1524,7 +1569,7 @@ class MachineSettingCalculator:
             "Sessions\nMissed",
             "% Missed",
             "Failed Sessions\nAvoided",
-            "% Failed\nAvoided"
+            "% Failed\nAvoided",
         ]
         # Print the table using tabulate for a formatted grid display
         print(tabulate(table_data, headers=headers, tablefmt="grid", floatfmt=".2f"))
@@ -1555,7 +1600,12 @@ class MachineSettingCalculator:
                 while True:
                     try:
                         # Prompt user to enter a numeric value for the selected setting
-                        value = float(input(f"\nEnter the {min_or_max} value for {selected_setting}: "))
+                        value = float(
+                            input(
+                                f"\nEnter the {min_or_max} value for "
+                                f"{selected_setting}: "
+                            )
+                        )
                         table[selected_setting][min_or_max] = value
                         break
                     except ValueError:
@@ -1574,7 +1624,9 @@ class MachineSettingCalculator:
         """
         while True:
             # Ask user if they want to update another setting
-            continue_analysis = input("\nDo you want to update another setting? (yes/no): ").lower()
+            continue_analysis = input(
+                "\nDo you want to update another setting? (yes/no): "
+            ).lower()
             if continue_analysis in ["yes", "no"]:
                 return continue_analysis == "yes"
             else:
@@ -1596,7 +1648,7 @@ class MachineSettingCalculator:
             # Display total number of sessions and failed sessions
             print(f"\nTotal number of sessions: {len(self.pre_transform_data)}")
             total_failed_sessions = self.pre_transform_data[
-                self.pre_transform_data["Machine failure"] == True
+                self.pre_transform_data["Machine failure"]
             ].shape[0]
             print(f"Total number of failed sessions: {total_failed_sessions}")
 
@@ -1933,9 +1985,6 @@ class EDAExecutor:
 
         Parameters:
             data (pd.DataFrame): The DataFrame to analyze for risk factors.
-
-        Steps:
-        - # TODO: fill in these steps
         """
         plotter = Plotter(data)
 
