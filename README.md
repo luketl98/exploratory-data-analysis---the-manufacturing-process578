@@ -3,6 +3,7 @@
 ## Table of Contents
 - [Project Description](#project-description)
 - [Installation Instructions](#installation-instructions)
+- [Usage Instructions](#usage-instructions)
 - [File Structure](#file-structure)
 - [License](#license)
 
