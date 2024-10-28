@@ -2,6 +2,7 @@ credentials.yaml
 failure_data.csv
 pre_transform_data.csv
 transformed_failure_data.csv
-.ipynb_checkpoints/
+.ipynb_checkpoints
+eda_notebook.ipynb
 eda_env/
 new_eda/
