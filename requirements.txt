@@ -1,7 +1,6 @@
 appnope==0.1.4
 asttokens==2.4.1
 backcall==0.2.0
-black==24.8.0
 click==8.1.7
 comm==0.2.2
 contourpy==1.1.1
