@@ -12,25 +12,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from tabulate import tabulate
 
-"""
-TODO:
-1. Ensure plots are generated well, the correct size and legible.
-2. Add handling for new data:
-    - Follow the process through as if starting from scratch, starting
-      by exploring stats & visualising the data and doing nothing else.
-    - Essentially, you would be adding an on/off switch for each
-      method (stage of EDA) in the EDAExecutor class.
-    - So, you the file will only run up to the stage of EDA you are
-      currently at. To continue, you would have to 'switch on' the next
-      method (stage of EDA) in the EDAExecutor class.
-    - ^ Or otherwise clarify with the file that you are ready to progress
-      to the next stage of EDA (switch on the next method)
-3. Add 'Yeo-Johnson transform done' print statement, or allow user to choose
-   which transformation method to use, following preview.
-4. Add full comments and Doc strings to all methods
-5. Is it better to use: 'if X is Not None' or 'if X'
-"""
-
 
 # Function to load database credentials from a YAML file
 def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
@@ -70,12 +51,12 @@ def filter_columns(
     ]
 
 
-def save_data_to_csv(data_frame: pd.DataFrame, filename: str) -> None:
+def save_data_to_csv(dataframe: pd.DataFrame, filename: str) -> None:
     """
     Saves a DataFrame to a CSV file.
 
     Parameters:
-        data_frame (pd.DataFrame): The DataFrame to save.
+        dataframe (pd.DataFrame): The DataFrame to save.
         filename (str): The filename to save the CSV file.
 
     Returns:
@@ -86,7 +67,7 @@ def save_data_to_csv(data_frame: pd.DataFrame, filename: str) -> None:
         Exception: If an unexpected error occurs.
     """
     try:
-        data_frame.to_csv(filename, index=False)
+        dataframe.to_csv(filename, index=False)
         print(f"\nData successfully saved to '{filename}'.")
     except IOError as e:
         print(f"An error occurred while saving to CSV: {e}")
@@ -195,11 +176,6 @@ class DataTransform:
 
     Attributes:
         dataframe (pd.DataFrame): The DataFrame containing the data to be transformed.
-
-    Example Usage:
-        transformer = DataTransform(dataframe)
-        transformer.convert_to_categorical('column_name')
-        transformer.convert_to_boolean('another_column')
     """
 
     def __init__(self, dataframe: pd.DataFrame) -> None:
@@ -264,7 +240,6 @@ class Plotter:
         dataframe (pd.DataFrame): The data to be visualised.
     """
 
-    # TODO: Can this class be refactored at all? any redundant methods or code
     def __init__(self, dataframe: pd.DataFrame) -> None:
         """
         Initialise the Plotter with a DataFrame.
@@ -318,8 +293,6 @@ class Plotter:
         self.fig = fig
         self.axes = axes
         return rows, cols
-
-        # TODO: Is there an auto_bin_width equivilant package or something?
 
     def auto_bin_width(self, data: np.array, num_bins: int = 25) -> float:
         """
@@ -425,7 +398,6 @@ class Plotter:
         ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
     def scatter_multiple_plots(self, column_pairs: list[tuple[str, str]]) -> None:
-        # TODO: e number being printed on some plots
         """
         Create scatter plots for specified column pairs.
 
@@ -444,10 +416,11 @@ class Plotter:
             plt.subplot(rows, cols, i)
             plt.scatter(self.dataframe[x_col], self.dataframe[y_col])
             plt.title(f"{x_col} vs {y_col}")
-            plt.xlabel(x_col)
+            plt.xlabel(x_col, labelpad=15)
             plt.ylabel(y_col)
 
         plt.suptitle("Scatter plots for selected column pairs")
+        plt.tight_layout()
         plt.show()
 
     def plot_histograms(self, exclude_columns: list = None) -> None:
@@ -462,7 +435,13 @@ class Plotter:
         numeric_cols = filter_columns(
             self.dataframe, np.number, exclude_columns=exclude_columns
         )
-        self.dataframe[numeric_cols].hist(bins=20, figsize=(15, 10))
+        axes = self.dataframe[numeric_cols].hist(bins=20, figsize=(15, 10))
+
+        # Iterate over the axes to set titles
+        for ax, col in zip(axes.flatten(), numeric_cols):
+            ax.set_xlabel(col)
+            ax.set_ylabel("Frequency")
+
         plt.suptitle("Histograms for Numeric Columns")
         plt.tight_layout()
         plt.show()
@@ -493,6 +472,7 @@ class Plotter:
             plt.subplot(1, len(categorical_cols), i + 1)  # Create subplots in a row
             self.dataframe[col].value_counts().plot(kind="bar")
             plt.title(col)
+            plt.ylabel("Frequency")  # Set y-axis title to 'Frequency'
 
         # Add a main title for all subplots and adjust layout to prevent overlap
         plt.suptitle("Bar plots of all categorical columns")
@@ -542,7 +522,6 @@ class Plotter:
         plt.show()
 
     def missing_data_matrix(self) -> None:
-        # TODO: self.dataframe or data? (same for all plotter class)
         """
         Display a missing data matrix for the DataFrame. This function helps
         identify missing data patterns which may be useful for further data imputation
@@ -582,7 +561,6 @@ class Plotter:
             exclude_columns (list): List of columns to exclude from the plots.
         """
         # Use provided dataframe or default to self.dataframe
-        # TODO: better way of doing this? (below)
         dataframe_to_use = dataframe if dataframe is not None else self.dataframe
 
         # If columns are not provided, default to all numeric columns
@@ -605,8 +583,7 @@ class Plotter:
                 plt.xlabel(x_column)
             else:
                 sns.boxplot(x=dataframe_to_use[col])
-                # TODO: Is this if-else necessary? ^
-                plt.xlabel("")
+                plt.xlabel(col, labelpad=15)
 
             plt.title(f"Boxplot of {col}")
 
@@ -675,9 +652,12 @@ class Plotter:
             plt.subplot(rows, cols, i)
             self.dataframe[column].hist(bins=50)
             plt.title(f"{column} (Skew: {skew_value:.2f})")
+            plt.ylabel("Frequency")  # Set y-axis title to 'Frequency'
+            plt.xlabel(column)  # Set x-axis title to the column name
 
         # Set a super title for all subplots
         plt.suptitle("Histograms for Numeric Columns with Skewness Value")
+        plt.tight_layout()
         plt.show()
 
     def visualise_transformed_column(
@@ -697,11 +677,15 @@ class Plotter:
         plt.subplot(1, 2, 1)
         plt.hist(original, bins=30, color="blue", alpha=0.7)
         plt.title(f"Original {column} (Skew: {original_skew:.2f})")
+        plt.xlabel(column)
+        plt.ylabel("Frequency")
 
         # Plot the transformed data
         plt.subplot(1, 2, 2)
         plt.hist(transformed, bins=30, color="green", alpha=0.7)
         plt.title(f"Transformed {column} (Skew: {transformed_skew:.2f})")
+        plt.xlabel(column)
+        plt.ylabel("Frequency")
 
         # Add a main title and show the plots
         plt.suptitle(f"Original vs Transformed {column}")
@@ -735,6 +719,7 @@ class Plotter:
 
         # Set a super title for all subplots
         plt.suptitle("Q-Q Plots for Numeric Columns")
+        plt.tight_layout()
         plt.show()
 
     # ------------ Further Analysis ------------ #
@@ -817,13 +802,13 @@ class Plotter:
             (failures_by_quality / total_by_quality) * 100, 2
         )
 
-        # TODO: 'dtype: int64' being printed in terminal
         # Print the total number of products, failures, and failure percentages
-        print("\nTotal by Product Quality:\n", total_by_quality)
-        print("\nFailures by Product Quality:\n", failures_by_quality)
-        print("\nFailure Percentage by Product Quality:\n", failure_percent_by_quality)
-
-        # TODO: Separate plotting from above? (move above into EDAExecutor)
+        print("\nTotal by Product Quality:\n", total_by_quality.to_string())
+        print("\nFailures by Product Quality:\n", failures_by_quality.to_string())
+        print(
+            "\nFailure Percentage by Product Quality:\n",
+            failure_percent_by_quality.to_string(),
+        )
 
         # Visualize failures by product quality using a bar chart
         plt.figure(figsize=(8, 6))
@@ -880,7 +865,7 @@ class Plotter:
         total_failures = cause_of_failure_counts.sum()
 
         # Print the total number of failures for each cause
-        print("\nLeading Causes of Failure:\n", cause_of_failure_counts)
+        print("\nLeading Causes of Failure:\n", cause_of_failure_counts.to_string())
 
         # Calculate the percentage of failures for each cause
         failure_percent_by_cause = (cause_of_failure_counts / total_failures) * 100
@@ -959,7 +944,6 @@ class Plotter:
         dataframe: pd.DataFrame,
         selected_column: list,
         target_column: list,
-        group_column: str = None,
     ) -> None:
         """
         Create subplots of line charts using selected columns and target columns.
@@ -968,13 +952,9 @@ class Plotter:
             dataframe (pd.DataFrame): The DataFrame containing the data.
             selected_column (list): List of machine setting columns.
             target_column (list): List of failure type columns.
-            group_column (str, optional): The column to group by (e.g., 'Type').
         """
-        # TODO: group_column not used? and same for rows, cols!
         num_plots = len(selected_column)
-        rows, cols = self._create_subplots(
-            num_plots=num_plots, cols=3, subplot_size=(6, 4)
-        )
+        self._create_subplots(num_plots=num_plots, cols=3, subplot_size=(6, 4))
         axes = self.axes
 
         for idx, setting in enumerate(selected_column):
@@ -1079,7 +1059,10 @@ class DataFrameInfo:
         self.dataframe = dataframe
 
     def describe_columns(
-        self, include_columns: list = None, stats_to_return: list = None
+        self,
+        include_columns: list = None,
+        exclude_columns: list = None,
+        stats_to_return: list = None,
     ) -> pd.DataFrame:
         """
         Describe selected columns and return specified statistics.
@@ -1087,6 +1070,8 @@ class DataFrameInfo:
         Parameters:
             include_columns (list, optional): Columns to include in the
             description. If None, all columns are included.
+            exclude_columns (list, optional): Columns to exclude from the
+            description. Only used if include_columns is None.
             stats_to_return (list, optional): Statistics to return
             (e.g., 'min', 'max'). If None, all statistics are returned.
 
@@ -1095,8 +1080,9 @@ class DataFrameInfo:
             statistics.
         """
         if include_columns is None:
-            # Include all columns if none are specified
-            include_columns = self.dataframe.columns
+            # Include all columns if none are specified, then exclude specified ones
+            print("Including all columns")
+            include_columns = self.dataframe.columns.difference(exclude_columns or [])
 
         description = self.dataframe[include_columns].describe(include="all")
 
@@ -1125,6 +1111,7 @@ class DataFrameInfo:
             self.dataframe, np.number, exclude_columns=exclude_columns
         )
 
+        # Calculate mean, median, and standard deviation for numeric columns
         statistics = {
             "mean": self.dataframe[numeric_cols].mean(),
             "median": self.dataframe[numeric_cols].median(),
@@ -1132,34 +1119,33 @@ class DataFrameInfo:
         }
         return pd.DataFrame(statistics)
 
-    def count_distinct_values(self, exclude_columns: list = None) -> pd.DataFrame:
+    def count_distinct_values(
+        self, dataframe: pd.DataFrame, exclude_columns: list = None
+    ) -> None:
         """
-        Count distinct values in categorical columns of the DataFrame,
+        Count and print distinct values in categorical columns of the given DataFrame,
         excluding specified columns.
 
         Parameters:
+            dataframe (pd.DataFrame): The DataFrame to analyze.
             exclude_columns (list, optional): A list of columns to exclude
             from the distinct count.
 
         Returns:
-            pd.DataFrame: A DataFrame with the count of distinct values
-            for each categorical column.
+            None
         """
         if exclude_columns is None:
             exclude_columns = []
 
         # Use filter_columns to get categorical columns, excluding specified ones
         categorical_columns = filter_columns(
-            self.dataframe, "category", exclude_columns=exclude_columns
+            dataframe, "category", exclude_columns=exclude_columns
         )
 
-        distinct_values = {
-            column: self.dataframe[column].nunique() for column in categorical_columns
-        }
-
-        return pd.DataFrame.from_dict(
-            distinct_values, orient="index", columns=["distinct_count"]
-        )
+        # Iterate over categorical columns and print distinct counts
+        for column in categorical_columns:
+            distinct_count = dataframe[column].nunique()
+            print(f"Column '{column}' has {distinct_count} distinct values.")
 
     def print_shape(self) -> None:
         """
@@ -1372,28 +1358,23 @@ class DataFrameTransform:
         plt.subplot(1, 3, 1)
         plt.hist(log_transformed, bins=30, color="blue")
         plt.title(f"Log Transform (Skew: {log_skew:.2f})")
+        plt.xlabel(column)
+        plt.ylabel("Frequency")
 
         plt.subplot(1, 3, 2)
         plt.hist(boxcox_transformed, bins=30, color="green")
         plt.title(f"Box-Cox Transform (Skew: {boxcox_skew:.2f})")
+        plt.xlabel(column)
+        plt.ylabel("Frequency")
 
         plt.subplot(1, 3, 3)
         plt.hist(yeo_transformed, bins=30, color="red")
         plt.title(f"Yeo-Johnson Transform (Skew: {yeo_skew:.2f})")
+        plt.xlabel(column)
+        plt.ylabel("Frequency")
 
         plt.suptitle(f"Preview transformations of {column}")
         plt.show()
-
-    def save_transformed_data(self, filename: str = "transformed_data.csv") -> None:
-        # TODO: Is this method necessary?
-        """
-        Save the transformed DataFrame to a new CSV file.
-
-        Parameters:
-            filename (str, optional): The name of the file to save the
-            DataFrame to. Default is "transformed_data.csv".
-        """
-        save_data_to_csv(self.dataframe, filename)
 
     def drop_columns(self, columns_to_drop: list) -> pd.DataFrame:
         """
@@ -1709,7 +1690,6 @@ class EDAExecutor:
             db_connector: An object responsible for database connections and
             data retrieval.
         """
-        # TODO: All other classes initialise 'self.dataframe' not 'self.data'
         self.data = None
         self.pre_transform_data = None
         self.db_connector = db_connector
@@ -1727,7 +1707,7 @@ class EDAExecutor:
         data = self.db_connector.fetch_data(query)
         if not data.empty:
             csv_filename = "failure_data.csv"
-            save_data_to_csv(data, csv_filename)
+            save_data_to_csv(dataframe=data, filename=csv_filename)
             print(
                 "\nData successfully retrieved from database",
                 f"and saved to '{csv_filename}'.",
@@ -1754,9 +1734,7 @@ class EDAExecutor:
         for col in ["Machine failure", "TWF", "HDF", "PWF", "OSF", "RNF"]:
             transformer.convert_to_boolean(col)
 
-        print("\nReformatting of data complete..")
-
-        return data  # Return the transformed data
+        return data  # Return the reformatted data
 
     def explore_stats(self, data: pd.DataFrame) -> None:
         """
@@ -1770,24 +1748,27 @@ class EDAExecutor:
         df_info = DataFrameInfo(data)
 
         # List which columns to exclude from certain analyses
-        extract_stats_exclude = ["UDI"]
-        count_distinct_exclude = ["Product ID"]
+        exclude_columns = ["UDI", "Product ID"]
 
         # Print various statistics
-        print("\nColumn Descriptions:\n", df_info.describe_columns())
+        print("\nColumn Descriptions:\n", df_info.describe_columns(
+                exclude_columns=exclude_columns
+            )
+        )
         print(
             "\nExtracted Statistics:\n",
-            df_info.extract_stats(exclude_columns=extract_stats_exclude),
+            df_info.extract_stats(exclude_columns=exclude_columns),
         )
 
-        print(
-            "\nDistinct Value Counts:\n",
-            df_info.count_distinct_values(exclude_columns=count_distinct_exclude),
-        )
+        # Call the method without using print, since it already prints the output
+        print("\nDistinct Value Counts:")
+        df_info.count_distinct_values(dataframe=data, exclude_columns=exclude_columns)
+
+        # Print the shape of the dataframe
         df_info.print_shape()
-        print("\nNull Value Counts:\n", df_info.count_null_values())
 
-        print("\nExploration of stats complete..")
+        # Print the null value counts
+        print("\nNull Value Counts:\n", df_info.count_null_values())
 
     def visualise_data(self, data: pd.DataFrame) -> None:
         """
@@ -1813,15 +1794,12 @@ class EDAExecutor:
         plotter.plot_bar_plots(exclude_columns="Product ID")
         plotter.correlation_heatmap()
         plotter.missing_data_matrix()
-        # TODO: boxplots missing axis titles
         plotter.plot_boxplots(exclude_columns="UDI")
         plotter.plot_skewness(exclude_columns="UDI")
         plotter.plot_qq(exclude_columns="UDI")
-        print("\nVisualisation complete..")
 
     def run_imputation_and_null_visualisation(
-        self, data: pd.DataFrame, knn_columns: dict = None,
-        visualisations_on: bool = True
+        self, data: pd.DataFrame, visualisations_on: bool = True
     ) -> None:
         """
         Handle null imputation and optionally visualise null count comparison.
@@ -1832,7 +1810,6 @@ class EDAExecutor:
             KNN imputation.
             visualisations_on (bool, optional): Flag to enable visualisation.
         """
-        # TODO: keep knn_columns param?
         df_transform = DataFrameTransform(data)
         df_info = DataFrameInfo(data)
         plotter = Plotter(data)
@@ -1862,16 +1839,16 @@ class EDAExecutor:
         if visualisations_on:
             plotter.plot_null_comparison(initial_null_count, null_count_after_impute)
 
-        print("\nRun null imputation complete..")
-
     def handle_skewness_and_transformations(
-        self, data: pd.DataFrame, visualisations_on: bool = True
+        self, data: pd.DataFrame, machine_setting: str, visualisations_on: bool = True
     ) -> None:
         """
-        Handle skewness detection and transformation of columns.
+        Handle skewness detection and transformation of columns. Allows user to
+        select a transformation method and visualise the transformation.
 
         Parameters:
             data (pd.DataFrame): The DataFrame to transform.
+            machine_setting (str): The column name to apply transformations to.
             visualisations_on (bool, optional): Flag to enable visualisation.
         """
         df_transform = DataFrameTransform(data)
@@ -1883,60 +1860,102 @@ class EDAExecutor:
 
         # Preview and visualise transformation (if visualisation flag is True)
         if visualisations_on:
-            df_transform.preview_transformations("Rotational speed [rpm]")
+            df_transform.preview_transformations(machine_setting)
 
-        # Retrieve 'Rotational speed [rpm]' column from pre-transform data
-        original_data = self.pre_transform_data["Rotational speed [rpm]"]
+        # Retrieve the specified column from pre-transform data
+        original_data = self.pre_transform_data[machine_setting]
 
-        # Perform Yeo-Johnson transformation on 'Rotational speed [rpm]'
-        yeo_transformed_data, _ = stats.yeojohnson(
-            df_transform.dataframe["Rotational speed [rpm]"]
-        )
+        # Prompt user to select a transformation method
+        print("\nSelect a transformation method:")
+        print("a: Log Transform")
+        print("b: Box-Cox Transform")
+        print("c: Yeo-Johnson Transform")
+        choice = input("Enter your choice (a, b, c): ").strip().lower()
+
+        # Perform the selected transformation
+        if choice == 'a':
+            transformed_data = np.log1p(
+                df_transform.dataframe[machine_setting]
+            )
+        elif choice == 'b':
+            transformed_data, _ = stats.boxcox(
+                df_transform.dataframe[machine_setting] + 1
+            )
+        elif choice == 'c':
+            transformed_data, _ = stats.yeojohnson(
+                df_transform.dataframe[machine_setting]
+            )
+        else:
+            print("Invalid choice. No transformation applied.")
+            return
 
         # Update the dataframe with the transformed data
-        df_transform.dataframe["Rotational speed [rpm]"] = yeo_transformed_data
+        df_transform.dataframe[machine_setting] = transformed_data
 
         # Visualise transformation (if visualisation flag is True)
         if visualisations_on:
             plotter.visualise_transformed_column(
-                column="Rotational speed [rpm]",
+                column=machine_setting,
                 original=original_data,
-                transformed=yeo_transformed_data,
+                transformed=transformed_data,
             )
 
-        print("\nRun skewness transformations complete..")
-
     def handle_outlier_detection(
-        self, data: pd.DataFrame, machine_setting: str
-    ) -> None:
+        self, data: pd.DataFrame, machine_setting: str, remove_outliers: bool = False
+    ) -> pd.DataFrame:
         """
-        Detect and handle outliers in the data.
+        Detect and optionally remove outliers in the data.
 
         Parameters:
             data (pd.DataFrame): The DataFrame to analyse for outliers.
             machine_setting (str): The column name to analyse for outliers.
+            remove_outliers (bool): Flag to remove detected outliers.
+
+        Returns:
+            pd.DataFrame: The DataFrame with outliers removed if specified.
         """
-        # TODO: Only detects outliers in 'Rotational speed [rpm]'?
         # Initialise helper classes for data analysis and plotting
         df_info = DataFrameInfo(data)
         plotter = Plotter(data)
 
         # Detect outliers using the z-score method for the specified column
-        print("\nDetecting z-score Outliers:")
         zscore_outliers = df_info.detect_outliers_zscore(machine_setting)
-        print(zscore_outliers)
+        # Print the number of outliers detected
+        print(f"\nNumber of z-score outliers detected: {len(zscore_outliers)}")
 
         # Detect outliers using the IQR method for the specified column
-        print("\nDetecting IQR Outliers:")
         iqr_outliers = df_info.detect_outliers_iqr(machine_setting)
-        print(iqr_outliers)
+        # Print the number of outliers detected
+        print(f"\nNumber of IQR outliers detected: {len(iqr_outliers)}")
+
+        original_count = len(data)
+
+        if remove_outliers:
+            # Ask user for removal preference
+            print("\nChoose outlier removal method:")
+            print("1: Remove combined outliers from both methods")
+            print("2: Remove only outliers that appear in both methods")
+            choice = input("Enter your choice (1 or 2): ").strip()
+
+            if choice == '1':
+                # Combine outliers from both methods
+                combined_outliers = pd.concat(
+                    [zscore_outliers, iqr_outliers]).drop_duplicates()
+                data = data[~data.index.isin(combined_outliers.index)]
+                print(f"\nCombined outliers removed: {original_count - len(data)}")
+            elif choice == '2':
+                # Find outliers that appear in both methods
+                common_outliers = zscore_outliers.index.intersection(iqr_outliers.index)
+                data = data[~data.index.isin(common_outliers)]
+                print(f"\nCommon outliers removed: {original_count - len(data)}")
+            else:
+                print("Invalid choice. No outliers removed.")
 
         # Visualise relationships between different data columns
-        # TODO: This plot is messy
         plotter.scatter_multiple_plots(
             [
                 ("Air temperature [K]", "Process temperature [K]"),
-                (machine_setting, "Torque [Nm]"),
+                ("Torque [Nm]", machine_setting),
                 ("Tool wear [min]", machine_setting),
             ]
         )
@@ -1944,7 +1963,7 @@ class EDAExecutor:
         # Plot boxplots for all columns except 'UDI'
         plotter.plot_boxplots(exclude_columns="UDI")
 
-        print("Outlier detection complete..")
+        return data
 
     # -- Further Analysis --
 
@@ -1976,6 +1995,8 @@ class EDAExecutor:
             include_columns=selected_columns,
             stats_to_return=["min", "max", "25%", "75%", "mean"],
         )
+        # Round to 3 decimal places
+        overall_ranges = overall_ranges.round(3)
         print(overall_ranges)
 
         # Loop through each product quality type and display the stats
@@ -1992,11 +2013,13 @@ class EDAExecutor:
                 include_columns=selected_columns,
                 stats_to_return=["min", "max", "25%", "75%", "mean"],
             )
+            # Round to 3 decimal places
+            type_specific_ranges = type_specific_ranges.round(3)
             print(type_specific_ranges)
 
         plotter.plot_tool_wear_distribution()
 
-    # Task 2: Failures Analysis
+    # Task 2: Determine the failure rate in the process
     def analyse_failures(self, data: pd.DataFrame) -> None:
         """
         Analyse failures by product quality and failure type.
@@ -2006,6 +2029,7 @@ class EDAExecutor:
         """
         plotter = Plotter(data)
 
+        # Calculations and plots for failure analysis
         plotter.calculate_failure_rate()
         plotter.failures_by_product_quality()
         plotter.leading_causes_of_failure()
@@ -2050,6 +2074,7 @@ class EDAExecutor:
             dataframe=self.pre_transform_data, columns=machine_settings, x_column="Type"
         )
 
+        # Uncomment to see the boxplots for each failure type
         """
         # Creates windows for each failure type, each with 5 boxplots,
         # one for each machine setting.
@@ -2089,6 +2114,8 @@ class EDAExecutor:
                     include_columns=machine_settings,
                     stats_to_return=["min", "max", "25%", "75%", "mean"],
                 )
+                # Round to 3 decimal places
+                failure_specific_ranges = failure_specific_ranges.round(3)
                 print(failure_specific_ranges)
 
     def further_analysis(self, data: pd.DataFrame) -> None:
@@ -2098,22 +2125,44 @@ class EDAExecutor:
         Parameters:
             data (pd.DataFrame): The DataFrame to analyse further.
         """
+        # Task 1: operating range calculator
+        print("\nAnalysing operating ranges...")
+        self.analyse_operating_ranges(data)
+        print("\nAnalysis of operating ranges complete..")
+        input("\nPress Enter to continue...")
+
+        # Task 2: failure analysis
+        print("\nAnalysing failures and failure types...")
+        self.analyse_failures(data)
+        print("\nAnalysis of failures and failure types complete..")
+        input("\nPress Enter to continue...")
+
+        # Task 3: failure risk factors
+        print("\nAnalysing failure risk factors...")
+        self.analyse_failure_risk_factors(data)
+        print("\nAnalysis of failure risk factors complete..")
+        input("\nPress Enter to continue...")
+
+        # Machine setting calculator
+        print("\nCalculate machine settings...")
         calculator = MachineSettingCalculator(self.pre_transform_data)
         calculator.run_machine_setting_calculator()
+        print("\nCalculation of machine settings complete..")
 
 
 if __name__ == "__main__":
-    # Flag control system:
-    # Each flag corresponds to a different step in the EDA process.
-    # Set a flag to True to include that step, or False to skip it.
-
+    """
+    Flag control system:
+    Each flag corresponds to a different step in the EDA process.
+    Set a flag to True to include that step, or False to skip it.
+    """
     run_reformat = True  # Reformat data (e.g., column types, categories)
-    run_explore_stats = False  # Explore statistics
-    run_visualisation = False  # Generate visualisations for data
+    run_explore_stats = True  # Explore statistics
+    run_visualisation = True  # Generate visualisations for data
     run_null_imputation = True  # Carry out null imputation & visualisation
     run_skewness_transformations = True  # Preview & perform transformation
     run_outlier_detection = True  # Detect and visualise outliers
-    run_drop_columns = False  # Drop columns after analysis (if applicable)
+    run_drop_columns = True  # Drop columns after analysis (if applicable)
     run_save_data = True  # Save transformed data
     run_further_analysis = True  # Carry out more in-depth analysis
 
@@ -2121,7 +2170,7 @@ if __name__ == "__main__":
     credentials = load_db_credentials("credentials.yaml")
     db_connector = RDSDatabaseConnector(credentials)
 
-    # Create an instance of EDAExecutor & df transform
+    # Create an instance of EDAExecutor
     eda_executor = EDAExecutor(db_connector)
 
     # Fetch and save data
@@ -2134,54 +2183,68 @@ if __name__ == "__main__":
         if run_reformat:
             # Reformat data as needed (ensure correct formats, types, etc.)
             data = eda_executor.reformat_data(data)
+            print("\nrun_reformat complete..")
+            input("\nPress Enter to continue...")
 
         if run_explore_stats:
             # Perform initial exploration of data
             eda_executor.explore_stats(data)
-            # input("\nPress Enter to continue...")
+            print("\nrun_explore_stats complete..")
+            input("\nPress Enter to continue...")
 
         if run_visualisation:
             # Perform visualisation of data
             eda_executor.visualise_data(data)
-            # input("\nPress Enter to continue...")
+            print("\nrun_visualisation complete..")
+            input("\nPress Enter to continue...")
 
         if run_null_imputation:
             # Perform null imputation/removal and visualise the result
             eda_executor.run_imputation_and_null_visualisation(
                 data, visualisations_on=True  # visualisations on/off
             )
-            # input("\nPress Enter to continue...")
+            print("\nrun_null_imputation complete..")
+            input("\nPress Enter to continue...")
 
         if run_skewness_transformations:
             # Skewness and transformations
             eda_executor.handle_skewness_and_transformations(
-                data, visualisations_on=True  # visualisations on/off
+                data,
+                machine_setting="Rotational speed [rpm]",
+                visualisations_on=True  # visualisations on/off
             )
-            # input("\nPress Enter to continue...")
+            print("\nrun_skewness_transformations complete..")
+            input("\nPress Enter to continue...")
 
         if run_outlier_detection:
             # Specify the column name you want to analyse for outliers
             machine_setting = "Rotational speed [rpm]"
             # Outlier detection - Only detects outliers
-            eda_executor.handle_outlier_detection(data, machine_setting)
-            # input("\nPress Enter to continue...")
+            eda_executor.handle_outlier_detection(
+                data, machine_setting, remove_outliers=True
+            )
+            print("\nrun_outlier_detection complete..")
+            input("\nPress Enter to continue...")
 
         if run_drop_columns:
             # Drop columns after analysis (if applicable)
-            columns_to_drop = ["Air temperature [K]", "Rotational speed [rpm]"]
+            columns_to_drop = ["Air temperature [K]"]
             df_transform.drop_columns(columns_to_drop)
-            # input("\nPress Enter to continue...")
+            print("\nrun_drop_columns complete..")
+            input("\nPress Enter to continue...")
 
         if run_save_data:
-            # Save the transformed data
-            df_transform.save_transformed_data("transformed_failure_data.csv")
+            # Save the transformed data directly using save_data_to_csv
+            save_data_to_csv(df_transform.dataframe, "transformed_failure_data.csv")
             save_data_to_csv(eda_executor.pre_transform_data, "pre_transform_data.csv")
-            # input("\nPress Enter to continue...")
+            print("\nrun_save_data complete..")
+            input("\nPress Enter to continue...")
 
         if run_further_analysis:
             # Carry out more in-depth analysis
             eda_executor.further_analysis(data)
-            # input("\nPress Enter to continue...")
+            print("\nrun_further_analysis complete..")
+            input("\nPress Enter to Finish...")
 
     else:
         print("\nNo data was fetched from the database.")
