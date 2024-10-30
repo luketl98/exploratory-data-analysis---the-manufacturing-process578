@@ -13,6 +13,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from tabulate import tabulate
 
 
+# TODO: 1. Separate classes into different files
+# TODO: 2. In the Further Analyis Plotter methods, seperate the calculation
+#          logic from the plotting logic.
+
 # Function to load database credentials from a YAML file
 def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
     with open(file_path, "r") as file:
