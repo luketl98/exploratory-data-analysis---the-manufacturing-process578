@@ -14,8 +14,6 @@ from tabulate import tabulate
 
 
 # TODO: 1. Separate classes into different files
-# TODO: 2. In the Further Analyis Plotter methods, seperate the calculation
-#          logic from the plotting logic.
 
 # Function to load database credentials from a YAML file
 def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
@@ -666,7 +664,7 @@ class Plotter:
 
     def visualise_transformed_column(
         self, column: str, original: pd.Series, transformed: pd.Series
-    ):
+    ) -> None:
         """
         Visualise the original vs transformed column and show skew values.
         """
@@ -755,29 +753,15 @@ class Plotter:
         plt.tight_layout()
         plt.show()
 
-    def calculate_failure_rate(self) -> None:
+    def plot_pie_chart(self, title: str, labels: list, sizes: list) -> None:
         """
-        Calculate and visualise the total number and percentage of failures.
+        Plot a pie chart with the given title, labels, and sizes.
 
-        This method calculates the failure rate in the manufacturing process and
-        visualises it using a pie chart, providing insights into the proportion
-        of failed processes.
+        Args:
+            title (str): The title of the pie chart.
+            labels (list): A list of labels for the pie chart.
+            sizes (list): A list of sizes corresponding to each label.
         """
-        # Calculate total number of processes and failures
-        total_processes = len(self.dataframe)
-        total_failures = self.dataframe["Machine failure"].sum()
-
-        # Calculate failure percentage
-        failure_percentage = (total_failures / total_processes) * 100
-
-        # Print failure statistics
-        print(f"\nTotal Processes: {total_processes}")
-        print(f"Total Failures: {total_failures}")
-        print(f"Failure Percentage: {failure_percentage:.2f}%")
-
-        # Visualise failure rate with a pie chart
-        labels = ["Failures", "Non-failures"]
-        sizes = [total_failures, total_processes - total_failures]
         plt.pie(
             sizes,
             labels=labels,
@@ -785,36 +769,24 @@ class Plotter:
             startangle=90,  # Start the pie chart at 90 degrees
             colors=["red", "green"],  # Use red for failures and green for non-failures
         )
-        plt.title("Failure Rate in the Manufacturing Process")
+        plt.title(title)
         plt.tight_layout()
         plt.show()
 
-    def failures_by_product_quality(self) -> None:
+    def plot_product_quality_chart(
+            self,
+            failures_by_quality: pd.Series,
+            failure_percent_by_quality: pd.Series
+            ) -> None:
         """
-        Analyse and visualise failures based on product quality types.
+        Plot a bar chart to visualise failures by product quality type.
 
-        This method calculates the number and percentage of failures for each
-        product quality type, prints the results to the terminal, and visualises
-        them using a bar chart.
+        Args:
+            failures_by_quality (pd.Series): Series containing failure counts
+                                             by product quality type.
+            failure_percent_by_quality (pd.Series): Series containing failure
+                                                    percentages by product quality type.
         """
-        # Group by product quality and count the number of failures
-        failures_by_quality = self.dataframe.groupby("Type")["Machine failure"].sum()
-        total_by_quality = self.dataframe.groupby("Type").size()
-
-        # Calculate the percentage of failures for each product quality type
-        failure_percent_by_quality = round(
-            (failures_by_quality / total_by_quality) * 100, 2
-        )
-
-        # Print the total number of products, failures, and failure percentages
-        print("\nTotal by Product Quality:\n", total_by_quality.to_string())
-        print("\nFailures by Product Quality:\n", failures_by_quality.to_string())
-        print(
-            "\nFailure Percentage by Product Quality:\n",
-            failure_percent_by_quality.to_string(),
-        )
-
-        # Visualize failures by product quality using a bar chart
         plt.figure(figsize=(8, 6))
         bars = plt.bar(
             failures_by_quality.index,
@@ -859,8 +831,7 @@ class Plotter:
         Determine, print, and visualise the leading causes of failure.
 
         This method calculates the total number of failures for each failure
-        type, prints the results, and visualises them using a bar chart to
-        highlight the most common causes of failure.
+        type, prints the results, and calls the plotting method for visualisation.
         """
         failure_columns = ["TWF", "HDF", "PWF", "OSF", "RNF"]
 
@@ -874,7 +845,25 @@ class Plotter:
         # Calculate the percentage of failures for each cause
         failure_percent_by_cause = (cause_of_failure_counts / total_failures) * 100
 
-        # Visualise the causes of failure using a bar chart
+        # Call plot_failure_causes_chart method for visualisation
+        self.plot_failure_causes_chart(
+            cause_of_failure_counts, failure_percent_by_cause
+            )
+
+    def plot_failure_causes_chart(
+            self,
+            cause_of_failure_counts: pd.Series,
+            failure_percent_by_cause: pd.Series
+            ) -> None:
+        """
+        Plot a bar chart to visualise the leading causes of failure.
+
+        Args:
+            cause_of_failure_counts (pd.Series): Series containing failure counts by
+                                                 failure type.
+            failure_percent_by_cause (pd.Series): Series containing failure percentages
+                                                  by failure type.
+        """
         plt.figure(figsize=(8, 6))
         bars = plt.bar(
             cause_of_failure_counts.index,
@@ -1224,6 +1213,68 @@ class DataFrameInfo:
             | (self.dataframe[column] > upper_bound)
         ]
         return outliers
+
+    def calculate_failure_rate(self) -> None:
+        """
+        Calculate the total number and percentage of failures.
+
+        This method calculates the failure rate in the manufacturing process and
+        returns the calculated values for visualisation.
+        """
+        # Calculate total number of processes and failures
+        total_processes = len(self.dataframe)
+        total_failures = self.dataframe["Machine failure"].sum()
+
+        # Calculate failure percentage
+        failure_percentage = (total_failures / total_processes) * 100
+
+        # Print failure statistics
+        print(f"\nTotal Processes: {total_processes}")
+        print(f"Total Failures: {total_failures}")
+        print(f"Failure Percentage: {failure_percentage:.2f}%")
+
+        # Prepare data for pie chart
+        labels = ["Failures", "Non-failures"]
+        sizes = [total_failures, total_processes - total_failures]
+        title = "Failure Rate in the Manufacturing Process"
+
+        plotter = Plotter(self.dataframe)
+
+        # Call plot_pie_chart method
+        plotter.plot_pie_chart(title, labels, sizes)
+
+    def failures_by_product_quality(self) -> None:
+        """
+        Analyse and visualise failures based on product quality types.
+
+        This method calculates the number and percentage of failures for each
+        product quality type, prints the results to the terminal, and calls the
+        plotting method for visualisation.
+        """
+        # Group by product quality and count the number of failures
+        failures_by_quality = self.dataframe.groupby("Type")["Machine failure"].sum()
+        total_by_quality = self.dataframe.groupby("Type").size()
+
+        # Calculate the percentage of failures for each product quality type
+        failure_percent_by_quality = round(
+            (failures_by_quality / total_by_quality) * 100, 2
+        )
+
+        # Print the total number of products, failures, and failure percentages
+        print("\nTotal by Product Quality:\n", total_by_quality.to_string())
+        print("\nFailures by Product Quality:\n", failures_by_quality.to_string())
+        print(
+            "\nFailure Percentage by Product Quality:\n",
+            failure_percent_by_quality.to_string(),
+        )
+
+        plotter = Plotter(self.dataframe)
+
+        # Call plot_bar_chart method for visualisation
+        plotter.plot_product_quality_chart(
+            failures_by_quality,
+            failure_percent_by_quality
+            )
 
 
 class DataFrameTransform:
@@ -2032,10 +2083,11 @@ class EDAExecutor:
             data (pd.DataFrame): The DataFrame to analyse for failures.
         """
         plotter = Plotter(data)
+        df_info = DataFrameInfo(data)
 
         # Calculations and plots for failure analysis
-        plotter.calculate_failure_rate()
-        plotter.failures_by_product_quality()
+        df_info.calculate_failure_rate()
+        df_info.failures_by_product_quality()
         plotter.leading_causes_of_failure()
         plotter.failure_causes_by_product_quality()
 
@@ -2149,8 +2201,8 @@ class EDAExecutor:
 
         # Machine setting calculator
         print("\nCalculate machine settings...")
-        calculator = MachineSettingCalculator(self.pre_transform_data)
-        calculator.run_machine_setting_calculator()
+        # calculator = MachineSettingCalculator(self.pre_transform_data)
+        # calculator.run_machine_setting_calculator()
         print("\nCalculation of machine settings complete..")
 
 
@@ -2161,12 +2213,12 @@ if __name__ == "__main__":
     Set a flag to True to include that step, or False to skip it.
     """
     run_reformat = True  # Reformat data (e.g., column types, categories)
-    run_explore_stats = True  # Explore statistics
-    run_visualisation = True  # Generate visualisations for data
+    run_explore_stats = False  # Explore statistics
+    run_visualisation = False  # Generate visualisations for data
     run_null_imputation = True  # Carry out null imputation & visualisation
     run_skewness_transformations = True  # Preview & perform transformation
-    run_outlier_detection = True  # Detect and visualise outliers
-    run_drop_columns = True  # Drop columns after analysis (if applicable)
+    run_outlier_detection = False  # Detect and visualise outliers
+    run_drop_columns = False  # Drop columns after analysis (if applicable)
     run_save_data = True  # Save transformed data
     run_further_analysis = True  # Carry out more in-depth analysis
 
@@ -2205,7 +2257,7 @@ if __name__ == "__main__":
         if run_null_imputation:
             # Perform null imputation/removal and visualise the result
             eda_executor.run_imputation_and_null_visualisation(
-                data, visualisations_on=True  # visualisations on/off
+                data, visualisations_on=False  # visualisations on/off
             )
             print("\nrun_null_imputation complete..")
             input("\nPress Enter to continue...")
@@ -2215,7 +2267,7 @@ if __name__ == "__main__":
             eda_executor.handle_skewness_and_transformations(
                 data,
                 machine_setting="Rotational speed [rpm]",
-                visualisations_on=True  # visualisations on/off
+                visualisations_on=False  # visualisations on/off
             )
             print("\nrun_skewness_transformations complete..")
             input("\nPress Enter to continue...")
