@@ -81,7 +81,7 @@ This project provides a robust framework for conducting EDA on manufacturing dat
 5. **Run the Project**:
    - Execute the main script to start the EDA process:
      ```bash
-     python db_utils.py
+     python main.py
      ```
    - Follow any on-screen instructions to proceed with the analysis.
 
@@ -97,7 +97,7 @@ To effectively use the EDA pipeline for analysing manufacturing data, follow the
 3. **Run the EDA Process**:
    - Execute the main script to start the EDA process:
      ```bash
-     python db_utils.py
+     python main.py
      ```
    - The script is designed to run through a series of data analysis steps, which can be controlled via flags in the main block of the script. These steps include data reformatting, statistical exploration, visualisation, null imputation, skewness transformation, outlier detection, and further analysis.
 
@@ -114,7 +114,7 @@ To effectively use the EDA pipeline for analysing manufacturing data, follow the
    - Use the further_analysis method to perform in-depth analysis on the transformed data, including operating range analysis, failure analysis, and risk factor investigation.
 
 ## File Structure
-- `db_utils.py` - Contains classes and functions to connect to the database, perform data analysis, visualisation, and transformation.
+- `db_utils.py` - Contains classes and functions to connect to the database.
 - `README.md` - Provides project documentation.
 - `.gitignore` - Specifies intentionally untracked files to ignore.
 - `credentials.yaml` - Stores database credentials (ensure this file is not tracked by git for security reasons).
