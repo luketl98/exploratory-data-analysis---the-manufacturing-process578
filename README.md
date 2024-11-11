@@ -114,7 +114,13 @@ To effectively use the EDA pipeline for analysing manufacturing data, follow the
    - Use the further_analysis method to perform in-depth analysis on the transformed data, including operating range analysis, failure analysis, and risk factor investigation.
 
 ## File Structure
-- `db_utils.py` - Contains classes and functions to connect to the database.
+- `db_utils.py` - Contains functions to connect to the database.
+- `executor.py` - Contains the `EDAExecutor` class for running EDA processes.
+- `main.py` - The main script to execute the EDA pipeline.
+- `transformations.py` - Contains classes and functions for data transformations.
+- `visualisations.py` - Contains the `Plotter` class for data visualisations.
+- `calculator.py` - Contains the `MachineSettingCalculator` class for machine setting calculations.
+- `df_info.py` - Contains classes and functions for data frame information and statistics.
 - `README.md` - Provides project documentation.
 - `.gitignore` - Specifies intentionally untracked files to ignore.
 - `credentials.yaml` - Stores database credentials (ensure this file is not tracked by git for security reasons).
