@@ -13,7 +13,31 @@ from sqlalchemy.exc import SQLAlchemyError
 from tabulate import tabulate
 
 
-# TODO: 1. Separate classes into different files
+# TODO: Separate classes into different files
+"""
+Given the number of methods and the descriptions, here's a 
+suggested way to split the file:
+1. database.py
+    - RDSDatabaseConnector.
+2. transformations.py
+    - DataTransform
+    - DataFrameTransform.
+3. visualisations.py
+    - Plotter.
+4. analysis.py
+    - DataFrameInfo
+    - MachineSettingCalculator.
+5. executor.py
+    - EDAExecutor.
+"""
+
+# TODO: Remove csv files from repo!
+# TODO: Test requirements.txt
+#   - Install only imported packages in a jupyter notebook and
+#     slowly build up the list of dependencies.
+
+# --- Utility Methods -----
+
 
 # Function to load database credentials from a YAML file
 def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
@@ -21,9 +45,6 @@ def load_db_credentials(file_path: str = "credentials.yaml") -> dict:
         credentials = yaml.safe_load(file)
 
     return credentials
-
-
-# --- Utility Methods -----
 
 
 def filter_columns(
@@ -2215,12 +2236,12 @@ if __name__ == "__main__":
     run_reformat = True  # Reformat data (e.g., column types, categories)
     run_explore_stats = False  # Explore statistics
     run_visualisation = False  # Generate visualisations for data
-    run_null_imputation = True  # Carry out null imputation & visualisation
-    run_skewness_transformations = True  # Preview & perform transformation
+    run_null_imputation = False  # Carry out null imputation & visualisation
+    run_skewness_transformations = False  # Preview & perform transformation
     run_outlier_detection = False  # Detect and visualise outliers
     run_drop_columns = False  # Drop columns after analysis (if applicable)
     run_save_data = True  # Save transformed data
-    run_further_analysis = True  # Carry out more in-depth analysis
+    run_further_analysis = False  # Carry out more in-depth analysis
 
     # Load database credentials and connect
     credentials = load_db_credentials("credentials.yaml")
