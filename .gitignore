@@ -6,3 +6,4 @@ transformed_failure_data.csv
 eda_notebook.ipynb
 eda_env/
 new_eda/
+test_env/

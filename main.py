@@ -1,31 +1,7 @@
 from db_utils import load_db_credentials, save_data_to_csv
 from db_connector import RDSDatabaseConnector
-from db_utils import EDAExecutor
+from executor import EDAExecutor
 from transformations import DataFrameTransform
-
-
-# TODO: Separate classes into different files
-"""
-Given the number of methods and the descriptions, here's a
-suggested way to split the file:
-X 1. db_connector.py
-X    - RDSDatabaseConnector.
-X 2. transformations.py
-X    - DataTransform
-X    - DataFrameTransform.
-3. visualisations.py
-    - Plotter.
-4. analysis.py
-    - DataFrameInfo
-    - MachineSettingCalculator.
-5. executor.py
-    - EDAExecutor.
-"""
-
-# TODO: Remove csv files from repo!
-# TODO: Test requirements.txt
-#   - Install only imported packages in a jupyter notebook and
-#     slowly build up the list of dependencies.
 
 
 if __name__ == "__main__":
@@ -78,7 +54,7 @@ if __name__ == "__main__":
         if run_null_imputation:
             # Perform null imputation/removal and visualise the result
             eda_executor.run_imputation_and_null_visualisation(
-                data, visualisations_on=False  # visualisations on/off
+                data, visualisations_on=True  # visualisations on/off
             )
             print("\nrun_null_imputation complete..")
             input("\nPress Enter to continue...")
@@ -88,7 +64,7 @@ if __name__ == "__main__":
             eda_executor.handle_skewness_and_transformations(
                 data,
                 machine_setting="Rotational speed [rpm]",
-                visualisations_on=False  # visualisations on/off
+                visualisations_on=True  # visualisations on/off
             )
             print("\nrun_skewness_transformations complete..")
             input("\nPress Enter to continue...")
