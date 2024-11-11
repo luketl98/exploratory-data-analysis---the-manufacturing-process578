@@ -1,18 +1,18 @@
 from db_utils import load_db_credentials, save_data_to_csv
 from db_connector import RDSDatabaseConnector
 from db_utils import EDAExecutor
-from db_utils import DataFrameTransform
+from transformations import DataFrameTransform
 
 
 # TODO: Separate classes into different files
 """
 Given the number of methods and the descriptions, here's a
 suggested way to split the file:
-1. database.py
-    - RDSDatabaseConnector.
-2. transformations.py
-    - DataTransform
-    - DataFrameTransform.
+X 1. db_connector.py
+X    - RDSDatabaseConnector.
+X 2. transformations.py
+X    - DataTransform
+X    - DataFrameTransform.
 3. visualisations.py
     - Plotter.
 4. analysis.py
@@ -35,14 +35,14 @@ if __name__ == "__main__":
     Set a flag to True to include that step, or False to skip it.
     """
     run_reformat = True  # Reformat data (e.g., column types, categories)
-    run_explore_stats = False  # Explore statistics
-    run_visualisation = False  # Generate visualisations for data
-    run_null_imputation = False  # Carry out null imputation & visualisation
-    run_skewness_transformations = False  # Preview & perform transformation
-    run_outlier_detection = False  # Detect and visualise outliers
-    run_drop_columns = False  # Drop columns after analysis (if applicable)
+    run_explore_stats = True  # Explore statistics
+    run_visualisation = True  # Generate visualisations for data
+    run_null_imputation = True  # Carry out null imputation & visualisation
+    run_skewness_transformations = True  # Preview & perform transformation
+    run_outlier_detection = True  # Detect and visualise outliers
+    run_drop_columns = True  # Drop columns after analysis (if applicable)
     run_save_data = True  # Save transformed data
-    run_further_analysis = False  # Carry out more in-depth analysis
+    run_further_analysis = True  # Carry out more in-depth analysis
 
     # Load database credentials and connect
     credentials = load_db_credentials("credentials.yaml")
